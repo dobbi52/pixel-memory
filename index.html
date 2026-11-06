@@ -363,6 +363,18 @@ span.mp-k{border:none}
   .rv-side{flex:none}
 }
 
+.mon-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mon-card{border:2px solid var(--line2);padding:5px;min-width:0}
+.mon-card.done{border-color:var(--green)}
+.mon-card.off{opacity:.5}
+.mon-card canvas{width:100%;aspect-ratio:1/1;display:block;image-rendering:pixelated}
+.mon-n{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.mon-s{font-size:14px;color:var(--muted);margin-top:3px;min-height:18px}
+.mon-card.done .mon-s{color:var(--green)}
+.mon-count{font-size:18px}
+.mon-count b{font-family:var(--pix);font-size:15px;font-weight:normal;color:var(--green)}
+@media (min-width:700px){.phone.mon{max-width:900px}.mon-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+
 </style>
 </head>
 <body>
@@ -864,6 +876,7 @@ function onState(){
   const s = S.state; if (!s) return;
   if (S.role === 'host') hostOnState();
   if (S.role === 'player') playerOnState();
+  if (S.role === 'monitor') monitorOnState();
 }
 
 /* =========================================================
@@ -879,7 +892,7 @@ async function createRoom(){
   const hostKey = genId();
   S.code = code; S.role = 'host'; S.hostKey = hostKey;
   lsSet('pm-host', JSON.stringify({ code, hostKey, at: Date.now() }));
-  await B.set('rooms/' + code, { meta: { created: B.now(), hostKey, settings: { ...DEFAULT_SETTINGS } }, state: { phase: 'lobby', round: 0 } });
+  await B.set('rooms/' + code, { meta: { created: B.now(), hostKey, remoteTok: genId(), settings: { ...DEFAULT_SETTINGS } }, state: { phase: 'lobby', round: 0 } });
   history.replaceState(null, '', location.pathname + '?host=' + code);
   subscribeRoom();
 }
@@ -1139,12 +1152,13 @@ function bindDrawing(cv){
 function render(force){
   if (!S.code) return;
   if (S.practice) renderPractice(force);
+  else if (S.role === 'monitor') renderMonitor(force);
   else if (S.role === 'host') renderHost(force); else renderPlayer(force);
   updateDynamic();
 }
 function onTick(){
   if (S.practice) { practiceTick(); render(); return; }
-  if (S.role === 'host') hostTick();
+  if (S.role === 'host') { hostTick(); updateRemoteModal(); }
   if (S.role === 'player') {
     const s = S.state;
     if (s && s.phase === 'draw' && !S.locked && B.now() >= s.drawEndsAt) { S.locked = true; S.drawing = false; writeDraw(true); render(true); }
@@ -1157,6 +1171,7 @@ function topbarHTML(){
     <div class="chip code"><span style="font-size:10px">CODE</span><b>${esc(S.code)}</b></div>
     <div class="chip">P ${onlinePlayers().length}</div>
     ${s.round ? `<div class="chip round">ROUND ${s.round}/${s.total}</div>` : ''}
+    <button class="chip bgm ${S.meta && S.meta.remoteDev ? 'on' : ''}" data-act="remote" style="font-family:var(--ko);font-size:17px" title="학생 이름과 그리는 모습을 선생님 폰에서만 봐요">${S.meta && S.meta.remoteDev ? '폰 연결됨' : '선생님 폰'}</button>
     <button class="chip bgm ${Music.on ? 'on' : ''}" data-act="bgm" aria-pressed="${Music.on}" aria-label="배경음악 켜기 끄기">${Music.on ? 'BGM ON' : 'BGM OFF'}</button></div></div>`;
 }
 function joinURL(){ return location.origin + location.pathname + '?room=' + S.code; }
@@ -1225,7 +1240,7 @@ function memoryStat(){
 /* ---------- 선생님 화면 ---------- */
 function renderHost(force){
   const s = S.state; if (!s || !S.meta) return;
-  let k = 'h:' + s.phase + ':' + (s.round || 0);
+  let k = 'h:' + s.phase + ':' + (s.round || 0) + ':' + !!S.meta.remoteDev;
   if (s.phase === 'lobby') k += ':' + JSON.stringify(settings()) + ':' + JSON.stringify(players().map(p => [p.id, p.name, p.online]));
   if (s.phase === 'view') k += ':' + (B.now() >= s.viewAt);
   if (s.phase === 'reveal') k += ':' + s.stage + ':' + !!S.rv + ':' + (S.rv ? Object.keys(S.rv.hidden).filter(x => S.rv.hidden[x]).join(',') : '') + ':' + (S.layoutV || 0);
@@ -1518,6 +1533,111 @@ function afterPlayerEnd(){
   });
 }
 
+/* ---------- 선생님 폰: 학생 이름과 그리는 모습은 이 화면에서만 ---------- */
+function monitorURL(tok){ return location.origin + location.pathname + '?teacher=' + S.code + '&t=' + tok; }
+function deviceId(){ let d = lsGet('pm-dev'); if (!d) { d = genId(); lsSet('pm-dev', d); } return d; }
+async function openRemoteModal(){
+  let tok = S.meta && S.meta.remoteTok;
+  if (!tok) { tok = genId(); await B.update(roomPath('meta'), { remoteTok: tok }); }
+  let m = $('#remoteModal');
+  if (!m) { m = document.createElement('div'); m.id = 'remoteModal'; m.className = 'rm-dim'; document.body.appendChild(m); }
+  m.hidden = false; S.rmShown = null;
+  updateRemoteModal();
+}
+function closeRemoteModal(){ const m = $('#remoteModal'); if (m) m.hidden = true; }
+function updateRemoteModal(){
+  const m = $('#remoteModal'); if (!m || m.hidden || !S.meta) return;
+  const on = !!S.meta.remoteDev, tok = S.meta.remoteTok;
+  const key = on + ':' + tok;
+  if (S.rmShown === key) return;
+  const wasWaiting = S.rmShown && S.rmShown.startsWith('false');
+  S.rmShown = key;
+  if (on && wasWaiting) { closeRemoteModal(); toast('선생님 폰이 연결됐어요'); return; }
+  m.innerHTML = `<div class="panel y rm-box">
+    <div class="tagpix" style="color:var(--yellow)">TEACHER PHONE</div>
+    ${on ? `<div style="font-size:24px">선생님 폰이 연결되어 있어요</div>
+      <div class="muted" style="font-size:18px;line-height:1.45">다른 폰으로 바꾸려면 연결을 끊고 QR을 다시 찍어요.</div>
+      <button class="btn pink" data-act="rmreset">연결 끊기</button>`
+    : `<div style="font-size:22px;line-height:1.4">선생님 폰으로 QR을 찍으면<br>학생 이름과 그리는 모습이 폰에만 나와요</div>
+      <div class="qr" id="rmQR" style="align-self:center"></div>
+      <div class="muted" style="font-size:17px;line-height:1.45">폰 한 대만 연결돼요. 학생이 먼저 찍지 않게 잠깐만 띄워 두세요.</div>`}
+    <button class="btn ghost small" data-act="rmclose">닫기</button>
+  </div>`;
+  const el = $('#rmQR');
+  if (el) {
+    if (typeof QRCode === 'undefined') el.innerHTML = '<span style="color:#333;font-size:16px;padding:10px">QR을 불러오지 못했어요.</span>';
+    else new QRCode(el, { text: monitorURL(tok), width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+  }
+}
+async function resetRemote(){
+  await B.update(roomPath('meta'), { remoteDev: null, remoteTok: genId() });
+}
+async function connectMonitor(code, tok){
+  const meta = await B.get('rooms/' + code + '/meta');
+  if (!meta || !tok || meta.remoteTok !== tok) return '연결할 수 없어요. 칠판에서 QR을 다시 찍어 주세요';
+  const dev = deviceId();
+  const r = await B.transaction('rooms/' + code + '/meta/remoteDev', cur => (cur == null || cur === dev) ? dev : undefined);
+  if (!r.committed) return '이미 다른 폰이 연결되어 있어요';
+  S.code = code; S.role = 'monitor'; S.monDev = dev; S.viewKey = ''; S.monRes = {}; S.liveDraws = {}; S.monRound = null;
+  subscribeRoom();
+  return null;
+}
+function monitorOnState(){
+  const s = S.state;
+  if (s.round && s.round !== S.monRound) {
+    S.monRound = s.round; S.liveDraws = {}; S.monRes = {};
+    if (S.drawsUnsub) S.drawsUnsub();
+    if (S.resUnsub) S.resUnsub();
+    S.drawsUnsub = B.on(roomPath('draws/' + s.round), v => { S.liveDraws = v || {}; paintMonitor(); });
+    S.resUnsub = B.on(roomPath('results/' + s.round), v => { S.monRes = v || {}; render(true); });
+  }
+  if (!s.round) S.monRound = null;
+  if (s.phase === 'end' && !S.totUnsub) S.totUnsub = B.on(roomPath('totals'), v => { S.monTotals = v || {}; render(true); });
+}
+function renderMonitor(force){
+  const s = S.state; if (!s || !S.meta) return;
+  if (S.meta.remoteDev !== S.monDev) { goHome(); toast('선생님 폰 연결이 끊겼어요', 3000); return; }
+  const ids = players().sort((a, b) => (a.joined || 0) - (b.joined || 0)).map(p => [p.id, p.name, p.online !== false]);
+  const k = 'm:' + s.phase + ':' + (s.round || 0) + ':' + JSON.stringify(ids) + ':' + (s.phase === 'reveal' ? JSON.stringify(S.monRes) : '') + ':' + (s.phase === 'end' ? JSON.stringify(S.monTotals || {}) : '');
+  if (!force && k === S.viewKey) return;
+  S.viewKey = k;
+  app.innerHTML = monitorHTML();
+  paintMonitor();
+}
+function monitorHTML(){
+  const s = S.state, pl = players().sort((a, b) => (a.joined || 0) - (b.joined || 0));
+  const head = `<div class="p-top"><span class="p-title">선생님 화면</span><span class="pix" style="font-size:11px;color:var(--yellow)">${s.round ? s.round + '/' + s.total : 'READY'}</span></div>`;
+  if (s.phase === 'lobby') return `<div class="phone">${head}<div class="wait-big" style="font-size:24px">학생을 기다리는 중</div><div class="names">${pl.map(p => `<span class="name-chip ${p.online === false ? 'off' : ''}">${esc(p.name)}</span>`).join('')}</div><div class="private">게임이 시작되면 그리는 모습이 여기에 나와요</div></div>`;
+  if (s.phase === 'view') return `<div class="phone">${head}<div class="look"><div class="wait-big" style="font-size:26px">칠판에 그림이 나오는 중이에요</div><div class="private">곧 학생들이 그리기 시작해요</div></div></div>`;
+  if (s.phase === 'end') {
+    const t = S.monTotals || {};
+    const rows = pl.map(p => ({ name: p.name, v: t[p.id] || 0 })).sort((a, b) => b.v - a.v);
+    return `<div class="phone">${head}<div class="tagpix" style="color:var(--yellow)">FINAL · 전체 순위</div><div>${rows.map((x, i) => `<div class="rank-row"><span class="r" style="color:${rankColor(i + 1)}">${i + 1}</span><span class="n">${esc(x.name)}</span><span class="s">${x.v}</span></div>`).join('')}</div><button class="btn ghost small" data-act="gohome">나가기</button></div>`;
+  }
+  const res = S.monRes || {};
+  const list = s.phase === 'reveal' ? [...pl].sort((a, b) => ((res[b.id] || {}).s || 0) - ((res[a.id] || {}).s || 0)) : pl;
+  return `<div class="phone mon">${head}
+    ${s.phase === 'draw' ? `<div class="p-top"><span class="p-time" id="drawTime">00:40</span><span class="mon-count"><b id="mDone">0</b> / ${pl.length}명 완료</span></div><div id="drawSeg">${seg10(1, 'y')}</div>` : '<div class="tagpix" style="color:var(--yellow)">이번 판 점수</div>'}
+    <div class="mon-grid">${list.map(p => `<div class="mon-card ${p.online === false ? 'off' : ''}" data-mon="${esc(p.id)}"><div class="mon-n">${esc(p.name)}</div><canvas></canvas><div class="mon-s">${s.phase === 'reveal' ? ((res[p.id] || {}).s || 0) + '점' : ''}</div></div>`).join('')}</div>
+    <div class="private">학생 이름과 그림은 이 화면에만 나와요</div>
+  </div>`;
+}
+function paintMonitor(){
+  const s = S.state; if (S.role !== 'monitor' || !s || !s.n) return;
+  let done = 0;
+  document.querySelectorAll('[data-mon]').forEach(c => {
+    const d = S.liveDraws[c.dataset.mon], px = (d && d.px && d.px.length === s.n * s.n) ? d.px : emptyPx(s.n);
+    if (d && d.done) done++;
+    const cv = c.querySelector('canvas');
+    if (cv._px !== px || cv._rn !== s.n) { cv._px = px; cv._rn = s.n; paintThumb(cv, px, px, s.n, 0); }
+    if (s.phase === 'draw') {
+      c.classList.toggle('done', !!(d && d.done));
+      c.querySelector('.mon-s').textContent = d && d.done ? '다 그림' : (/[1-9]/.test(px) ? '칠하는 중' : '아직');
+    }
+  });
+  setText('mDone', String(done));
+}
+
 /* ---------- 혼자 연습 (서버 없이 이 기기에서만) ---------- */
 const PR_SET = 5;
 const PR_LEVELS = {
@@ -1714,6 +1834,9 @@ document.addEventListener('click', async e => {
   const a = e.target.closest('[data-act]'); if (!a) return;
   const act = a.dataset.act;
   if (act === 'bgm') { Music.toggle(); updateBgmButtons(); }
+  else if (act === 'remote') openRemoteModal();
+  else if (act === 'rmclose') closeRemoteModal();
+  else if (act === 'rmreset') resetRemote();
   else if (act === 'start') { Music.init(); await startGame(); }
   else if (act === 'next') hostNext();
   else if (act === 'forcefinish') { const s = S.state; if (s && s.phase === 'draw' && onceFor('finish:' + s.round)) finishRound(s.round); }
@@ -1787,12 +1910,17 @@ document.addEventListener('submit', async e => {
 (async function boot(){
   try { B = FIREBASE_CONFIG ? await makeFirebaseBackend(FIREBASE_CONFIG) : makeLocalBackend(); }
   catch (e) { console.error(e); S.noConn = true; B = makeLocalBackend(true); showHome(); return; }
-  if (B.trackPresence) B.trackPresence();
+  if (B.trackPresence && !location.search.includes('teacher=')) B.trackPresence();
   $('#modeflag').textContent = B.mode === 'local' ? 'DEMO MODE · 같은 브라우저 탭끼리만 연결' : '';
   const q = new URLSearchParams(location.search);
-  if ((q.get('host') || q.get('room')) && !await B.waitConnected(6000)) {
+  if ((q.get('host') || q.get('room') || q.get('teacher')) && !await B.waitConnected(6000)) {
     if (q.get('room')) { showJoin(q.get('room')); const er = $('#jErr'); if (er) er.textContent = NOCONN_MSG; }
     else { S.noConn = true; showHome(); }
+    return;
+  }
+  if (q.get('teacher')) {
+    const m = await connectMonitor(q.get('teacher'), q.get('t'));
+    if (m) { showHome(); toast(m, 4000); }
     return;
   }
   if (q.get('host')) { if (await resumeHost(q.get('host'))) return; showHome(); return; }
