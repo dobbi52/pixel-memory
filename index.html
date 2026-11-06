@@ -333,7 +333,9 @@ span.mp-k{border:none}
 .sp{flex:1}
 .lb-note{font-size:16px;color:var(--muted);text-align:center}
 .name-chip{background:transparent;color:inherit;font-family:var(--ko);cursor:pointer}
-.name-chip.armed{cursor:pointer}
+.lobby .set-row .lb{width:130px}
+.lobby .panel{padding:12px 16px}
+.lobby-right{gap:12px}
 .look{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
 .look .eye{display:grid;grid-template-columns:repeat(11,1fr);gap:2px;width:min(60vw,220px)}
 .look .eye i{aspect-ratio:1/1;display:block}
@@ -739,8 +741,10 @@ function picColors(px){ return [...new Set(px.replace(/0/g, ''))].sort().join(''
 const ROUNDS = {
   3: [8, 10, 12],
   5: [8, 8, 10, 10, 12],
-  7: [8, 8, 10, 10, 10, 12, 12]
+  7: [8, 8, 10, 10, 10, 12, 12],
+  10: [8, 8, 8, 10, 10, 10, 10, 12, 12, 12]
 };
+const DEFAULT_SETTINGS = { rounds: 5, level: 'mix', viewSec: 10, drawSec: 40 };
 const READY_MS = 3000, DRAW_SEC = 40, GRACE_MS = 1200, STAGE0_MS = 6000, STAGE1_MS = 5000;
 const TIPS = [
   ['전체 모양부터', '칸을 세기 전에 무슨 그림인지 먼저 잡아요.'],
@@ -753,15 +757,19 @@ const TIPS = [
 ];
 function tipFor(r){ return TIPS[(r - 1) % TIPS.length]; }
 
-function makePlan(rounds){
+function makePlan(st){
   let used = {}; try { used = JSON.parse(lsGet('pm-used') || '{}') || {}; } catch (e) {}
-  const plan = (ROUNDS[rounds] || ROUNDS[5]).map((n, idx, arr) => {
-    let pool = PICS[n].map((_, i) => i).filter(i => !(used[n] || []).includes(i));
-    if (!pool.length) { used[n] = []; pool = PICS[n].map((_, i) => i); }
+  const sizes = st.level === 'mix' ? (ROUNDS[st.rounds] || ROUNDS[5]) : new Array(st.rounds).fill(st.level);
+  const thisGame = {};
+  const plan = sizes.map(n => {
+    const mine = thisGame[n] = thisGame[n] || [];
+    const all = PICS[n].map((_, i) => i).filter(i => !mine.includes(i));
+    let pool = all.filter(i => !(used[n] || []).includes(i));
+    if (!pool.length) { used[n] = []; pool = all; }
     const i = pool[Math.floor(Math.random() * pool.length)];
+    mine.push(i);
     (used[n] = used[n] || []).push(i);
-    const sameBefore = arr.slice(0, idx).filter(x => x === n).length;
-    return { n, i, view: n === 12 ? 10 : (sameBefore ? 8 : 10), draw: DRAW_SEC };
+    return { n, i, view: st.viewSec, draw: st.drawSec };
   });
   lsSet('pm-used', JSON.stringify(used));
   return plan;
@@ -782,13 +790,13 @@ function sfx(notes, gap = 0.09, vol = 1.6){
 const S = {
   code: null, role: null, pid: null, hostKey: null,
   meta: null, state: null, players: {}, unsubs: [], viewKey: '', tick: null,
-  plan: null, advancing: '', drawsUnsub: null, drawsRound: null, liveDraws: {}, rv: null, armed: null, animated: '',
+  plan: null, advancing: '', drawsUnsub: null, drawsRound: null, liveDraws: {}, rv: null, animated: '',
   mineRound: null, localPx: null, color: 1, tool: 'pen', undo: [], drawing: false, lastCell: null, writeT: null, submitted: false, locked: false,
   myResult: null, myTotal: null, resUnsub: null, totUnsub: null, seenSelf: false, history: null
 };
 function players(){ return Object.entries(S.players || {}).filter(([, p]) => p && p.name).map(([id, p]) => ({ id, ...p })); }
 function onlinePlayers(){ return players().filter(p => p.online !== false); }
-function settings(){ return { rounds: 5, ...((S.meta && S.meta.settings) || {}) }; }
+function settings(){ return { ...DEFAULT_SETTINGS, ...((S.meta && S.meta.settings) || {}) }; }
 function roomPath(sub = ''){ return 'rooms/' + S.code + (sub ? '/' + sub : ''); }
 function clearSubs(){
   S.unsubs.forEach(u => u()); S.unsubs = [];
@@ -833,7 +841,7 @@ async function createRoom(){
   const hostKey = genId();
   S.code = code; S.role = 'host'; S.hostKey = hostKey;
   lsSet('pm-host', JSON.stringify({ code, hostKey, at: Date.now() }));
-  await B.set('rooms/' + code, { meta: { created: B.now(), hostKey, settings: { rounds: 5 } }, state: { phase: 'lobby', round: 0 } });
+  await B.set('rooms/' + code, { meta: { created: B.now(), hostKey, settings: { ...DEFAULT_SETTINGS } }, state: { phase: 'lobby', round: 0 } });
   history.replaceState(null, '', location.pathname + '?host=' + code);
   subscribeRoom();
 }
@@ -857,8 +865,7 @@ function hostOnState(){
   if (s.phase === 'reveal' && (!S.rv || S.rv.round !== s.round)) loadReveal();
 }
 async function startGame(){
-  const rounds = settings().rounds;
-  S.plan = makePlan(rounds);
+  S.plan = makePlan(settings());
   lsSet('pm-plan-' + S.code, JSON.stringify(S.plan));
   const ups = { draws: null, results: null, totals: null };
   await B.update(roomPath(), ups);
@@ -880,7 +887,7 @@ function hostTick(){
   const now = B.now();
   if (s.phase === 'view' && now >= s.viewEndsAt && onceFor('draw:' + s.round)) {
     const p = S.plan && S.plan[s.round - 1];
-    B.set(roomPath('state'), { phase: 'draw', round: s.round, total: s.total, n: s.n, colors: s.colors, drawEndsAt: now + (p ? p.draw : DRAW_SEC) * 1000 });
+    B.set(roomPath('state'), { phase: 'draw', round: s.round, total: s.total, n: s.n, colors: s.colors, drawSec: p ? p.draw : DRAW_SEC, drawEndsAt: now + (p ? p.draw : DRAW_SEC) * 1000 });
     sfx([79, 74]);
   }
   if (s.phase === 'draw') {
@@ -1181,7 +1188,7 @@ function memoryStat(){
 function renderHost(force){
   const s = S.state; if (!s || !S.meta) return;
   let k = 'h:' + s.phase + ':' + (s.round || 0);
-  if (s.phase === 'lobby') k += ':' + settings().rounds + ':' + JSON.stringify(players().map(p => [p.id, p.name, p.online])) + ':' + S.armed;
+  if (s.phase === 'lobby') k += ':' + JSON.stringify(settings()) + ':' + JSON.stringify(players().map(p => [p.id, p.name, p.online]));
   if (s.phase === 'view') k += ':' + (B.now() >= s.viewAt);
   if (s.phase === 'reveal') k += ':' + s.stage + ':' + !!S.rv + ':' + (S.rv ? Object.keys(S.rv.hidden).filter(x => S.rv.hidden[x]).join(',') : '') + ':' + (S.layoutV || 0);
   if (!force && k === S.viewKey) return;
@@ -1204,8 +1211,8 @@ function hostLobbyHTML(){
   const st = settings();
   const pl = players().sort((a, b) => (a.joined || 0) - (b.joined || 0));
   const online = onlinePlayers().length;
-  const seg = [3, 5, 7].map(v => `<button data-set="rounds" data-val="${v}" class="${st.rounds === v ? 'on' : ''}">${v}판</button>`).join('');
-  const est = Math.ceil(st.rounds * 1.5);
+  const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, label]) => `<button data-set="${k}" data-val="${v}" class="${st[k] === v ? 'on' : ''}">${label}</button>`).join('')}</div>`;
+  const est = Math.ceil(st.rounds * (READY_MS / 1000 + st.viewSec + st.drawSec + 20) / 60);
   return `<div class="board">${topbarHTML()}
   <div class="lobby">
     <div class="panel g lobby-join">
@@ -1219,12 +1226,15 @@ function hostLobbyHTML(){
     </div>
     <div class="lobby-right">
       <div class="panel p">
-        <div class="panel-h"><span class="tagpix" style="color:var(--pink)">PLAYERS ${online}</span><span class="muted" style="font-size:17px">이름을 두 번 누르면 내보내요</span></div>
-        <div class="names">${pl.length ? pl.map(p => `<button class="name-chip ${p.online === false ? 'off' : ''} ${S.armed === p.id ? 'armed' : ''}" data-kick="${esc(p.id)}">${S.armed === p.id ? '내보내기?' : esc(p.name)}</button>`).join('') : '<span class="muted blink" style="font-size:20px">친구들을 기다리는 중...</span>'}</div>
+        <div class="panel-h"><span class="tagpix" style="color:var(--pink)">PLAYERS ${online}</span><span class="muted" style="font-size:17px">이름을 누르면 내보내요</span></div>
+        <div class="names">${pl.length ? pl.map(p => `<button class="name-chip ${p.online === false ? 'off' : ''}" data-kick="${esc(p.id)}" aria-label="${esc(p.name)} 내보내기">${esc(p.name)}</button>`).join('') : '<span class="muted blink" style="font-size:20px">친구들을 기다리는 중...</span>'}</div>
       </div>
       <div class="panel y">
         <div class="panel-h"><span class="tagpix" style="color:var(--yellow)">SETTING</span><span class="muted" style="font-size:17px">약 ${est}분 걸려요</span></div>
-        <div class="set-row"><span class="lb">라운드</span><div class="seg" role="group">${seg}</div></div>
+        <div class="set-row"><span class="lb">라운드</span>${seg('rounds', [[3, '3판'], [5, '5판'], [7, '7판'], [10, '10판']])}</div>
+        <div class="set-row"><span class="lb">난이도</span>${seg('level', [['mix', '차례로'], [8, '쉬움 8×8'], [10, '보통 10×10'], [12, '어려움 12×12']])}</div>
+        <div class="set-row"><span class="lb">그림 보는 시간</span>${seg('viewSec', [[5, '5초'], [8, '8초'], [10, '10초'], [15, '15초']])}</div>
+        <div class="set-row"><span class="lb">맞히는 시간</span>${seg('drawSec', [[20, '20초'], [30, '30초'], [40, '40초'], [60, '60초']])}</div>
       </div>
       <div class="panel">
         <div class="panel-h"><span class="tagpix" style="color:var(--blue)">HOW TO</span></div>
@@ -1630,7 +1640,7 @@ function updateDynamic(){
   }
   if (s.phase === 'draw') {
     const left = Math.max(0, s.drawEndsAt - now);
-    const t = mmss(left), ratio = left / (DRAW_SEC * 1000);
+    const t = mmss(left), ratio = left / ((s.drawSec || DRAW_SEC) * 1000);
     setText('drawTime', t); setText('drawTimeP', t);
     setSeg('drawSeg', ratio); setSeg('drawSegP', ratio);
     if (S.role === 'host') {
@@ -1655,13 +1665,11 @@ document.addEventListener('click', async e => {
   const col = e.target.closest('[data-color]');
   if (col) { S.color = +col.dataset.color; if (S.tool === 'erase') S.tool = 'pen'; render(true); return; }
   const set = e.target.closest('[data-set]');
-  if (set && S.role === 'host') { B.update(roomPath('meta/settings'), { [set.dataset.set]: +set.dataset.val }); return; }
+  if (set && S.role === 'host') { const raw = set.dataset.val; B.update(roomPath('meta/settings'), { [set.dataset.set]: isNaN(+raw) ? raw : +raw }); return; }
   const kick = e.target.closest('[data-kick]');
   if (kick && S.role === 'host') {
-    const id = kick.dataset.kick;
-    if (S.armed === id) { S.armed = null; B.remove(roomPath('players/' + id)); }
-    else { S.armed = id; clearTimeout(S.armT); S.armT = setTimeout(() => { S.armed = null; render(true); }, 2500); }
-    render(true); return;
+    B.remove(roomPath('players/' + kick.dataset.kick));
+    return;
   }
   const th = e.target.closest('[data-thumb]');
   if (th && S.rv) { const id = th.dataset.thumb; S.rv.hidden[id] = !S.rv.hidden[id]; render(true); return; }
