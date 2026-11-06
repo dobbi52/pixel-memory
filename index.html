@@ -1,0 +1,1762 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>픽셀 기억력</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Press+Start+2P&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#0B0F1A; --panel:#141A2E; --cell:#1C2340; --line:#2A3150; --line2:#3A4466;
+  --text:#E8ECFF; --muted:#8A93C2;
+  --green:#39FF88; --green-d:#1F6B45; --pink:#FF4FA3; --pink-d:#7A1F4F; --yellow:#FFE14D; --yellow-d:#7A6A1A;
+  --blue:#4FC3FF; --blue-d:#1E5C7A;
+  --pix:'Press Start 2P', monospace; --ko:'Do Hyeon', sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ko);min-height:100%;touch-action:manipulation;-webkit-text-size-adjust:100%}
+button,a,input,label{touch-action:manipulation}
+body{min-height:100vh;min-height:100dvh}
+button{font-family:var(--ko);color:inherit;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+input,textarea{font-family:var(--ko)}
+.pix{font-family:var(--pix)}
+.muted{color:var(--muted)}
+.hidden{display:none!important}
+
+/* buttons */
+.btn{border:none;padding:0 20px;height:52px;font-size:20px;background:var(--green);color:var(--bg);box-shadow:5px 5px 0 var(--green-d)}
+.btn:active:not(:disabled){transform:translate(3px,3px);box-shadow:2px 2px 0 var(--green-d)}
+.btn.pink{background:var(--pink);box-shadow:5px 5px 0 var(--pink-d)}
+.btn.pink:active:not(:disabled){box-shadow:2px 2px 0 var(--pink-d)}
+.btn.yellow{background:var(--yellow);box-shadow:5px 5px 0 var(--yellow-d)}
+.btn.yellow:active:not(:disabled){box-shadow:2px 2px 0 var(--yellow-d)}
+.btn.ghost{background:transparent;color:var(--text);border:3px solid var(--line2);box-shadow:none}
+.btn.blue{background:var(--blue);box-shadow:5px 5px 0 var(--blue-d)}
+.btn.blue:active:not(:disabled){box-shadow:2px 2px 0 var(--blue-d)}
+.mcount{font-size:17px;white-space:nowrap}
+.mcount b{font-family:var(--pix);font-size:13px;font-weight:normal}
+.mp{border:2px solid var(--line2);padding:8px 12px}
+.mp summary{cursor:pointer;font-size:18px;color:var(--blue)}
+.mp-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.mp-row{display:flex;align-items:center;gap:10px;min-height:36px}
+.mp-n{flex:1;font-size:19px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mp-n small{color:var(--muted);font-size:14px}
+.mp-s{font-size:12px;color:var(--green)}
+.mp-k{min-width:76px;height:34px;background:transparent;border:2px solid var(--line2);color:var(--muted);font-size:15px}
+span.mp-k{border:none}
+.mp-k.on{border-color:var(--pink);color:var(--pink)}
+.btn.small{height:40px;font-size:17px;padding:0 14px}
+
+/* logo */
+.logo{display:flex;align-items:center;gap:14px}
+.logo-mark{width:34px;height:34px;display:grid;grid-template-columns:repeat(3,1fr);gap:2px;flex:none}
+.logo-mark i{display:block}
+.logo-title{font-size:36px;line-height:1;color:var(--green)}
+.logo-sub{font-family:var(--pix);font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:6px}
+
+/* panels */
+.panel{background:var(--panel);border:4px solid var(--line2);padding:16px 18px}
+.panel.g{border-color:var(--green)}
+.panel.p{border-color:var(--pink)}
+.panel.y{border-color:var(--yellow)}
+.panel-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.tagpix{font-family:var(--pix);font-size:12px}
+
+/* grid canvas */
+.grid-wrap{background:var(--bg);padding:2px;width:100%;aspect-ratio:1/1;position:relative;touch-action:none}
+.grid-wrap canvas{width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none}
+.grid-frame{border:4px solid var(--green)}
+
+/* center screens */
+.center{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.card{width:100%;max-width:440px;display:flex;flex-direction:column;gap:18px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:17px;color:var(--green)}
+.inp{height:56px;padding:0 14px;border:3px solid var(--green);background:var(--panel);color:var(--text);font-size:22px;outline:none;width:100%;border-radius:0}
+.inp:focus{border-color:var(--yellow)}
+.inp.code{font-family:var(--pix);font-size:22px;letter-spacing:8px;text-align:center}
+.err{color:var(--pink);font-size:17px;min-height:22px}
+.home-btns{display:flex;flex-direction:column;gap:16px}
+.home-btns .btn{height:72px;font-size:24px;display:flex;align-items:center;justify-content:space-between}
+.home-btns .btn span.pix{font-size:11px}
+.blink{animation:blink 1s steps(2,start) infinite}
+@keyframes blink{to{visibility:hidden}}
+.note{font-size:15px;color:var(--muted);line-height:1.5;border:2px dashed var(--line2);padding:10px 12px}
+
+/* ====== BOARD (teacher) ====== */
+.board{min-height:100vh;min-height:100dvh;padding:18px 28px;display:flex;flex-direction:column;gap:18px;max-width:1600px;margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.chips{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.chip{padding:10px 14px;border:3px solid var(--line2);font-family:var(--pix);font-size:12px}
+.chip.code{border-color:var(--yellow);color:var(--yellow);display:flex;gap:10px;align-items:center}
+.chip.code b{font-size:20px;letter-spacing:4px}
+.chip.round{background:var(--pink);color:var(--bg);border-color:var(--pink)}
+.b-main{display:flex;gap:26px;flex:1;min-height:0;flex-wrap:wrap;align-items:flex-start}
+.b-left{flex:0 0 auto;width:min(46vw,560px,calc(100vh - 150px));width:min(46vw,560px,calc(100dvh - 150px));display:flex;flex-direction:column;gap:12px}
+.b-right{flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:20px}
+.hintbar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:36px}
+.hint-cat{padding:3px 12px;background:var(--yellow);color:var(--bg);font-size:20px}
+.hint-cat.off{background:transparent;color:var(--muted);border:2px dashed var(--line2)}
+.letters{display:flex;gap:6px;align-items:flex-end}
+.letters i{display:block;width:26px;height:6px;background:var(--green)}
+
+.drawers{display:flex;gap:12px}
+.dcard{flex:1;min-width:0;padding:12px;border:3px solid var(--line2);display:flex;flex-direction:column;gap:6px;min-height:150px;justify-content:space-between}
+.dcard .nm{font-size:28px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dcard.done{color:var(--muted)}
+.dcard.wait{border-style:dashed}
+.dcard.now{background:var(--green);color:var(--bg);border-color:var(--green);flex:1.3}
+.dcard .tm{font-family:var(--pix);font-size:24px}
+.seg10{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;height:10px}
+.seg10 i{display:block;background:rgba(11,15,26,.25)}
+.seg10 i.on{background:var(--bg)}
+.seg10.y i{background:var(--line)}
+.seg10.y i.on{background:var(--yellow)}
+
+.rank-row{display:flex;align-items:center;gap:14px;height:32px}
+.rank-row .r{width:56px;font-family:var(--pix);font-size:12px}
+.rank-row .n{flex:1;font-size:24px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank-row .s{font-family:var(--pix);font-size:15px;color:var(--green)}
+.ctrls{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+
+/* lobby */
+.lobby{display:flex;gap:26px;flex-wrap:wrap}
+.lobby-join{flex:0 0 auto;width:min(100%,380px);display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.qr{background:#fff;padding:10px;width:200px;height:200px;display:flex;align-items:center;justify-content:center}
+.qr img,.qr canvas{width:180px!important;height:180px!important;image-rendering:pixelated}
+.bigcode{font-family:var(--pix);font-size:40px;color:var(--yellow);letter-spacing:10px}
+.url{font-size:15px;color:var(--muted);word-break:break-all}
+.lobby-right{flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:20px}
+.names{display:flex;flex-wrap:wrap;gap:8px;min-height:44px}
+.name-chip{padding:6px 12px;border:2px solid var(--green);font-size:20px}
+.name-chip.off{border-color:var(--line2);color:var(--muted)}
+.set-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:5px 0;border-bottom:2px solid var(--line)}
+.set-row:last-child{border-bottom:none}
+.set-row .lb{width:110px;font-size:19px;color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{height:36px;min-width:52px;padding:0 12px;background:transparent;border:3px solid var(--line2);font-size:18px}
+.seg button.on{background:var(--green);color:var(--bg);border-color:var(--green)}
+.ta{width:100%;min-height:96px;padding:10px;background:var(--bg);color:var(--text);border:3px solid var(--line2);font-size:18px;line-height:1.5;resize:vertical;font-family:system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+
+/* result & end */
+.banner{background:var(--yellow);color:var(--bg);padding:20px 22px;box-shadow:6px 6px 0 var(--yellow-d);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.banner.miss{background:var(--panel);color:var(--text);border:4px solid var(--line2);box-shadow:none}
+.banner .big{font-size:36px;line-height:1.1}
+.banner .pts{font-family:var(--pix);font-size:30px}
+.bonus-row{display:flex;align-items:center;gap:14px;height:40px;padding:0 14px;border:2px solid var(--line);margin-bottom:8px}
+.bonus-row .t{width:70px;font-family:var(--pix);font-size:10px}
+.bonus-row .n{flex:1;font-size:23px}
+.bonus-row .s{font-family:var(--pix);font-size:13px;color:var(--green)}
+.answer{display:flex;align-items:center;gap:14px;justify-content:center}
+.answer b{font-size:46px;color:var(--yellow);font-weight:normal}
+.podium{display:flex;gap:18px;align-items:flex-end;justify-content:center;margin:4px 0 2px}
+.pod{display:flex;flex-direction:column;align-items:center;gap:8px;width:170px}
+.pod .nm{font-size:28px;text-align:center}
+.pod .bar{width:100%;display:flex;align-items:flex-start;justify-content:center;padding-top:12px;font-family:var(--pix);font-size:22px;color:var(--bg)}
+.wrong-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
+.wrong-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border:2px solid var(--line)}
+.wrong-row .w{flex:1;font-size:20px}
+.wrong-row .who{color:var(--muted);font-size:16px}
+
+/* ====== PLAYER (phone) ====== */
+.phone{max-width:460px;margin:0 auto;padding:14px 16px 24px;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;gap:12px}
+.p-top{display:flex;align-items:center;justify-content:space-between;min-height:44px;gap:8px}
+.p-time{font-family:var(--pix);font-size:20px;color:var(--yellow)}
+.turn-tag{padding:8px 10px;background:var(--green);color:var(--bg);font-family:var(--pix);font-size:11px}
+.secret{border:3px solid var(--pink);background:var(--panel);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.secret b{font-size:32px;color:var(--yellow);font-weight:normal;line-height:1}
+.palette{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+.palette button{height:44px;border:2px solid var(--bg);padding:0}
+.palette button.on{border:3px solid #fff;box-shadow:0 0 0 3px var(--pink)}
+.tools{display:flex;gap:8px}
+.tools .btn.ghost{font-size:17px}
+.tools .btn{flex:1;height:48px;font-size:18px;padding:0 8px}
+.tools .btn.ghost.on{border-color:var(--yellow);color:var(--yellow)}
+.scorebar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:2px solid var(--line2)}
+.lives{display:flex;gap:6px;align-items:center}
+.misses{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-height:28px}
+.miss-box{display:flex;flex-direction:column;gap:6px}
+.miss-h{display:flex;align-items:baseline;gap:8px}
+.misses{max-height:78px;overflow-y:auto}
+.misses span.w{padding:2px 8px;border:2px solid var(--line2);color:var(--text);font-size:17px;display:inline-flex;align-items:baseline;gap:5px}
+.misses span.w small{font-size:13px;color:var(--muted)}
+.misses span.w.mine{border-color:var(--pink)}
+.misses span.w.mine small{color:var(--pink)}
+.guess-row{display:flex;gap:8px;align-items:flex-end}
+.guess-row .field{flex:1}
+.msg{font-size:20px;text-align:center;padding:12px;border:3px dashed var(--line2)}
+.msg.ok{border-color:var(--green);color:var(--green)}
+.msg.bad{border-color:var(--pink);color:var(--pink)}
+.wait-big{font-size:28px;text-align:center;line-height:1.4}
+
+/* 그림판 + 옆 칸 (폰: 위아래, 넓은 화면: 좌우) */
+.play .p-side{display:contents}
+.play .p-canvas{order:2}
+.play .p-side > *{order:1}
+.play .p-side > .after{order:3}
+.play .spacer{display:none}
+.p-title{font-size:20px}
+.p-score{font-size:14px}
+.p-note{text-align:center;font-size:16px}
+.done-btn{height:52px;font-size:20px}
+.hint-row{display:flex;align-items:center;justify-content:space-between;min-height:36px;gap:8px}
+.p-letters{font-size:17px}
+.miss-t{font-size:18px;color:var(--pink)}
+.secret b.hid{color:var(--muted);letter-spacing:6px}
+.peek{height:40px;padding:0 12px;background:transparent;border:3px solid var(--yellow);color:var(--yellow);font-size:17px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;white-space:nowrap}
+.peek.on{background:var(--yellow);color:var(--bg)}
+.peek.need{animation:needPulse .7s steps(2,start) infinite}
+@keyframes needPulse{to{background:var(--yellow);color:var(--bg)}}
+@media (min-width: 900px) and (min-aspect-ratio: 5/4){
+  .phone.play{--cv:min(calc(100vh - 48px), 58vw);max-width:none;display:grid;grid-template-columns:var(--cv) minmax(340px,560px);justify-content:center;align-items:start;column-gap:32px;padding:24px 32px;min-height:100vh}
+  .play .p-canvas{width:var(--cv);order:0;grid-column:1;grid-row:1}
+  .play .p-side{order:0;grid-column:2;grid-row:1}
+  .play .p-side{display:flex;flex-direction:column;gap:16px;min-height:calc(100vh - 48px)}
+  .play .spacer{display:block;flex:1}
+  .play .p-title{font-size:28px}
+  .play .p-time{font-size:28px}
+  .play .p-score{font-size:18px}
+  .play .scorebar{padding:12px 16px;border-width:3px}
+  .play .secret{padding:14px 18px;border-width:4px}
+  .play .secret b{font-size:44px}
+  .play .palette{grid-template-columns:repeat(4,1fr);gap:10px}
+  .play .palette button{height:56px}
+  .play .tools .btn{height:52px;font-size:20px}
+  .play .done-btn{height:64px;font-size:26px}
+  .play .p-note{font-size:18px}
+  .play .hint-row{padding:14px 16px;background:var(--panel);border:4px solid var(--yellow)}
+  .play .hint-cat{font-size:24px}
+  .play .p-letters{font-size:22px}
+  .play .lives svg{width:28px;height:25px}
+  .play .miss-box{flex:1;min-height:120px;padding:14px 16px;background:var(--panel);border:4px solid var(--pink)}
+  .play .miss-t{font-size:24px}
+  .play .misses{max-height:none;overflow:auto;flex:1;align-content:flex-start;align-items:flex-start}
+  .play .misses span.w{font-size:21px}
+  .play .inp{height:60px;font-size:24px}
+}
+@supports (height: 100dvh){
+  @media (min-width: 900px) and (min-aspect-ratio: 5/4){
+    .phone.play{--cv:min(calc(100dvh - 48px), 58vw);min-height:100dvh}
+    .play .p-side{min-height:calc(100dvh - 48px)}
+  }
+}
+.live{font-size:18px;text-align:center;padding:8px 12px;border:2px solid var(--line2);color:var(--muted);line-height:1.5}
+.live b{font-family:var(--pix);font-size:15px;color:var(--green);font-weight:normal}
+.live.warn{border-color:var(--yellow);color:var(--yellow)}
+.live.warn b{color:var(--yellow)}
+.live.full{border-color:var(--pink);color:var(--pink)}
+.live.full b{color:var(--pink)}
+.rm-dim{position:fixed;inset:0;background:rgba(11,15,26,.85);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
+.rm-dim[hidden]{display:none}
+.rm-box{width:min(100%,460px);display:flex;flex-direction:column;gap:16px}
+.rm-mini{width:min(100%,260px);align-self:center}
+.board-word{font-size:30px;color:var(--yellow);font-weight:normal;letter-spacing:1px}
+.board-word.hid{color:var(--muted);letter-spacing:6px}
+.toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:var(--yellow);color:var(--bg);padding:10px 16px;font-size:20px;z-index:50;box-shadow:4px 4px 0 var(--yellow-d)}
+/* animations */
+@keyframes enter{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.enter{animation:enter .36s steps(6) both}
+@keyframes pop{0%{transform:scale(.55)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+.pop{animation:pop .42s steps(6) both}
+@keyframes shake{0%,100%{transform:none}20%{transform:translateX(-9px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+.shake{animation:shake .36s steps(6)}
+.urgent{color:var(--pink)!important;animation:blink .5s steps(2,start) infinite}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.pod .bar{transform-origin:bottom;animation:grow .9s steps(9) both}
+.pod:nth-child(1) .bar{animation-delay:.5s}.pod:nth-child(2) .bar{animation-delay:1s}.pod:nth-child(3) .bar{animation-delay:.1s}
+.splash{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(11,15,26,.9);z-index:40;pointer-events:none;animation:splash 1.7s steps(10) forwards;text-align:center;padding:16px}
+@keyframes splash{0%{opacity:0}8%{opacity:1}82%{opacity:1}100%{opacity:0;visibility:hidden}}
+.splash .t1{font-family:var(--pix);font-size:clamp(20px,5vw,40px);animation:pop .5s steps(6) both}
+.splash .t2{font-size:clamp(30px,7vw,64px);animation:pop .5s .15s steps(6) both}
+.splash .bars{display:flex;gap:6px}
+.splash .bars i{display:block;width:14px;height:14px;animation:blink .4s steps(2,start) infinite}
+.splash .bars i:nth-child(2){animation-delay:.1s}.splash .bars i:nth-child(3){animation-delay:.2s}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:45;overflow:hidden}
+.confetti i{position:absolute;top:-20px;display:block;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(540deg)}}
+.armed{background:var(--pink)!important;color:var(--bg)!important;border-color:var(--pink)!important}
+.chip.bgm{background:transparent;color:var(--muted);cursor:pointer;font-family:var(--pix)}
+.chip.bgm.on{border-color:var(--green);color:var(--green)}
+@media (prefers-reduced-motion: reduce){
+  .enter,.pop,.shake,.pod .bar,.splash .t1,.splash .t2{animation:none}
+  .splash{animation:splash 1.7s steps(1) forwards}
+  .confetti{display:none}
+}
+.modeflag{pointer-events:none;position:fixed;left:10px;bottom:6px;font-family:var(--pix);font-size:8px;color:var(--muted);opacity:.7}
+
+@media (max-width: 900px){
+  .board{padding:16px}
+  .b-left{width:100%}
+  .lobby-join{width:100%}
+  .drawers{flex-wrap:wrap}
+  .dcard{min-height:110px}
+}
+/* ====== 픽셀 기억력 ====== */
+.home-btns .btn{height:76px}
+.big-num{font-family:var(--pix);font-size:clamp(70px,18vw,200px);color:var(--yellow);text-align:center;line-height:1}
+.mv{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:0}
+.mv-grid{width:min(68vh,60vw);width:min(68dvh,60vw);aspect-ratio:1/1;border:6px solid var(--yellow);background:var(--bg)}
+.mv-grid canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+.mv-t{font-size:clamp(26px,3.4vw,44px);text-align:center}
+.mv-time{font-family:var(--pix);font-size:clamp(28px,4vw,56px);color:var(--pink)}
+.mv-bar{width:min(68vh,60vw);width:min(68dvh,60vw)}
+.ctr3{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+.ctr3 .panel{min-width:210px;text-align:center}
+.ctr3 b{display:block;font-family:var(--pix);font-weight:normal;font-size:clamp(30px,4vw,52px);color:var(--green);margin-bottom:10px}
+.ctr3 .panel.p b{color:var(--pink)}
+.ctr3 span{font-size:22px}
+.rv{flex:1;display:flex;gap:20px;min-height:0;align-items:stretch}
+.rv-gal{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:10px;min-height:calc(100vh - 110px);min-height:calc(100dvh - 110px)}
+.rv-side{flex:0 0 clamp(300px,28vw,430px);display:flex;flex-direction:column;gap:12px}
+.th{position:relative;padding:0;background:var(--panel);border:3px solid var(--line2);display:block;width:var(--th);height:var(--th)}
+.th canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+.th .sc{position:absolute;right:0;bottom:0;background:var(--bg);color:var(--green);font-family:var(--pix);font-size:clamp(9px,calc(var(--th) * .13),16px);padding:3px 4px}
+.th .nm{position:absolute;left:-3px;right:-3px;top:-3px;background:var(--yellow);color:var(--bg);font-size:clamp(14px,calc(var(--th) * .17),24px);padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th.top{border-color:var(--yellow);box-shadow:0 0 0 3px var(--yellow)}
+.th.dim{opacity:.45}
+.th.hid{border-style:dashed}
+.th.hid span.h{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:clamp(13px,calc(var(--th) * .2),22px)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two canvas{width:100%;aspect-ratio:1/1;display:block;image-rendering:pixelated;background:var(--bg)}
+.two .cap{font-size:17px;color:var(--muted);text-align:center;margin-top:4px}
+.q-box{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-family:var(--pix);font-size:34px;color:var(--muted);border:3px dashed var(--line2)}
+.pic-name{font-size:30px;color:var(--yellow);text-align:center;line-height:1.1}
+.stat{font-size:19px;line-height:1.35}
+.stat b{color:var(--green);font-weight:normal}
+.top3 .rank-row .n{font-size:24px}
+.tip{font-size:18px;line-height:1.35;border:2px dashed var(--line2);padding:8px 10px;color:var(--muted)}
+.tip b{color:var(--blue);font-weight:normal}
+.rv-side .btn{height:60px;font-size:24px;flex:none}
+.sp{flex:1}
+.lb-note{font-size:16px;color:var(--muted);text-align:center}
+.name-chip{background:transparent;color:inherit;font-family:var(--ko);cursor:pointer}
+.name-chip.armed{cursor:pointer}
+.look{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
+.look .eye{display:grid;grid-template-columns:repeat(11,1fr);gap:2px;width:min(60vw,220px)}
+.look .eye i{aspect-ratio:1/1;display:block}
+.score-big{font-family:var(--pix);font-size:64px;color:var(--green);text-align:center;line-height:1.1}
+.p-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.p-two canvas{width:100%;aspect-ratio:1/1;display:block;image-rendering:pixelated}
+.p-two .cap{font-size:17px;color:var(--muted);text-align:center;margin-top:4px}
+.private{font-size:15px;color:var(--muted);text-align:center}
+.hist{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.hist div{border:2px solid var(--line2);padding:6px;text-align:center}
+.hist canvas{width:100%;aspect-ratio:1/1;display:block;image-rendering:pixelated}
+.hist b{font-family:var(--pix);font-weight:normal;font-size:12px;color:var(--green);display:block;margin-top:6px}
+.award{display:flex;align-items:center;gap:12px;font-size:24px;padding:10px 14px;border:3px solid var(--blue)}
+.award b{font-weight:normal;color:var(--blue);flex:none}
+.awards{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.end-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px}
+.pr-grid{width:min(100%,62vh,560px);width:min(100%,62dvh,560px);aspect-ratio:1/1;border:5px solid var(--yellow);background:var(--bg)}
+.pr-grid canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+.pr-bar{width:min(100%,62vh,560px);width:min(100%,62dvh,560px)}
+.tools .btn{min-width:0;white-space:nowrap}
+@media (max-width:480px){.tools{gap:6px}.tools .btn,.tools .btn.ghost{font-size:14px;padding:0 1px}}
+@media (max-width:900px){
+  .rv{flex-direction:column}
+  .rv-gal{min-height:0}
+  .rv-side{flex:none}
+}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast hidden" role="status"></div>
+<div id="modeflag" class="modeflag"></div>
+
+<script>
+/* =========================================================
+   Firebase 설정 — null로 바꾸면 같은 브라우저의 여러 탭끼리만 연결되는 체험 모드가 됩니다.
+   ========================================================= */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAQfnzwuUo-3X1XWcrdZmLSDIdqMrqac7E",
+  authDomain: "pixel-memory-dba33.firebaseapp.com",
+  databaseURL: "https://pixel-memory-dba33-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "pixel-memory-dba33",
+  storageBucket: "pixel-memory-dba33.firebasestorage.app",
+  messagingSenderId: "415618106661",
+  appId: "1:415618106661:web:1c3bf843022689219206cc"
+};
+
+/* =========================================================
+   그림 문제 — 모두 이 게임을 위해 새로 그린 원본입니다.
+   . 빈칸 / W 흰색 R 빨강 O 주황 Y 노랑 G 초록 B 파랑 P 보라 N 갈색
+   ========================================================= */
+const PICS = {
+  8: [
+    ['하트', ['.RR..RR.','RWRRRRRR','RRRRRRRR','RRRRRRRR','.RRRRRR.','..RRRR..','...RR...','........']],
+    ['화살표', ['...GG...','..GGGG..','.GGGGGG.','GGGGGGGG','...YY...','...YY...','...YY...','...YY...']],
+    ['별', ['...YY...','...YY...','YYYYYYYY','.YYOOYY.','..YOOY..','.YYYYYY.','.YY..YY.','Y......Y']],
+    ['버섯', ['..RRRR..','.RWRRWR.','RRRRRRRR','RWRRRRWR','RRRRRRRR','..WWWW..','..WWWW..','..WWWW..']],
+    ['웃는 얼굴', ['.YYYYYY.','YYYYYYYY','YYNYYNYY','YYYYYYYY','YNYYYYNY','YYNNNNYY','YYYYYYYY','.YYYYYY.']],
+    ['소나무', ['...GG...','..GGGG..','.GGGGGG.','..GGGG..','.GGGGGG.','GGGGGGGG','...NN...','...NN...']],
+    ['돛단배', ['...W....','...WW...','...WWW..','...WWWW.','...W....','BBBBBBBB','.BBBBBB.','..BBBB..']],
+    ['열쇠', ['.YYYY...','.Y..Y...','.Y..Y...','.YYYY...','..YY....','..YYOO..','..YY....','..YYOO..']],
+    ['달과 별', ['...YYY..','..YYY...','.YYY....','.YYY..W.','.YYY....','..YYY...','...YYYY.','....YY..']],
+    ['꽃', ['........','.PP..PP.','PPPPPPPP','.PPYYPP.','.PPYYPP.','PPPPPPPP','.PP..PP.','........']],
+    ['번개', ['....YYY.','...YYY..','..YYY...','.YYYYYY.','...OOO..','..OOO...','.OOO....','.OO.....']],
+    ['우산', ['...BB...','.BBBBBB.','BBBBBBBB','B..N...B','...N....','...N....','...N.N..','....N...']]
+  ],
+  10: [
+    ['집', ['....RR....','...RRRR...','..RRRRRR..','.RRRRRRRR.','RRRRRRRRRR','.WWWWWWWW.','.WBBWWNNW.','.WBBWWNNW.','.WWWWWNNW.','.WWWWWNNW.']],
+    ['물고기', ['..........','....OOO...','..OOOOOO.O','.OOOWOOOOO','OONOWOOOOO','OOOOWOOOOO','.OOOWOOOOO','..OOOOOO.O','....OOO...','..........']],
+    ['사과', ['.....NGG..','....N.GG..','..RRRRRRR.','.RRRRRRRRR','.RWRRRRRRR','.RWRRRRRRR','.RRRRRRRRR','..RRRRRRR.','...RRRRR..','....R.R...']],
+    ['자동차', ['..........','...RRRR...','..RBBBBR..','.RRBBBBRR.','RRRRRRRRRR','RWRRRRRRWR','RRRRRRRRRR','.NNN..NNN.','.NWN..NWN.','..........']],
+    ['고양이', ['.O......O.','.OO....OO.','.OOOOOOOO.','OOOOOOOOOO','OOGOOOOGOO','OOOOWWOOOO','OOOWNNWOOO','.OOOOOOOO.','..OOOOOO..','...O..O...']],
+    ['로켓', ['....RR....','...RRRR...','...WWWW...','...WBBW...','...WBBW...','...WWWW...','..RWWWWR..','.RRWWWWRR.','.R.OOOO.R.','....OO....']],
+    ['아이스크림', ['...PPPP...','..PWPPPP..','..PPPPPP..','..PPPPPP..','..OOOOOO..','..ONOONO..','...OOOO...','...ONNO...','....OO....','....OO....']],
+    ['노을 언덕', ['BBBBBBBBBB','BBBYYYBBBB','BBYYYYYBBB','BBYYYYYBBB','BBBYYYBBBB','BBBBBBBBBB','GGGBBBBGGG','GGGGGBGGGG','GGGGGGGGGG','NNNNNNNNNN']],
+    ['나비', ['.PP....PP.','PPPP..PPPP','PYPPNNPPYP','PPPPNNPPPP','.PPPNNPPP.','..PBNNBP..','.BBBNNBBB.','BBYBNNBYBB','.BBB..BBB.','..........']],
+    ['사과나무', ['...GGGG...','..GGGGGG..','.GGRGGGGG.','GGGGGGRGGG','GRGGGGGGGG','GGGGGRGGGG','.GGGGGGGG.','...NNNN...','....NN....','...NNNN...']],
+    ['수박', ['..........','..........','RRRRRRRRRR','RNRRRNRRRN','RRRNRRRNRR','WRRRRRRRRW','GWRRRRRRWG','.GWWWWWWG.','..GGGGGG..','..........']],
+    ['눈사람', ['...NNNN...','...NNNN...','..NNNNNN..','...WWWW...','..WNWWNW..','...WOOW...','..WWWWWW..','.WWWNNWWW.','.WWWWWWWW.','..WWWWWW..']],
+    ['찻잔', ['..N..N....','...N..N...','..........','.WWWWWW...','.WRRRRWWW.','.WRRRRW.W.','.WRRRRW.W.','.WRRRRWWW.','.WWWWWW...','..........']]
+  ],
+  12: [
+    ['성', ['..R.......R.','..RR......RR','..N........N','.NNN.N.N.NNN','.NNNNNNNNNNN','.NBNNNNNNNBN','.NNNNWWWNNNN','.NNNNWYWNNNN','.NBNNWWWNNBN','.NNNNWWWNNNN','GGGGGGGGGGGG','GGGGGGGGGGGG']],
+    ['바닷가', ['.........OO.','..WW.....OO.','.WWWW.......','............','BBBBBBBBBBBB','BWBBBBBWBBBB','BBBBWBBBBBWB','YYYYYYBBBBBB','YYYYYYYYYYYY','YYYRRRYYYYYY','YYRRRRRYYYYY','YYYYNYYYYYYY']],
+    ['야자수 섬', ['BBBBBBBBBBBB','BBGGGBBGGBBB','BGGGGGGGGGGB','BBBBGNGGBBGB','BBBBBNBBBBBB','BBBBBNBBBBBB','BBBBBNBBWWBB','BBBBBNBBBBBB','BBBYYNYYYBBB','BBYYYYYYYYBB','WWBBBBBBBBWW','BBBBWWBBBBBB']],
+    ['밤의 도시', ['PPPPPPPPPPWP','PWPPPPPRPPPP','PPPPPPNNNPPP','PPNNPPNYNPPP','PPNYPPNNNPNN','PPNNNNNONPNY','NNNYNYNNNPNN','NONNNNNNYNNN','NNNNYNNNNNNO','NYNNNNONNYNN','NNNNNNNNNNNN','WWWWWWWWWWWW']],
+    ['로봇', ['.....RR.....','.....NN.....','..WWWWWWWW..','..WBBWWBBW..','..WBBWWBBW..','..WWWWWWWW..','..WNYNYNYW..','...WWWWWW...','.BBBBBBBBBB.','.B.BOOOOB.B.','.W.BBBBBB.W.','...NN..NN...']],
+    ['산과 호수', ['BYYBBBBBBBBB','BYYBWWBBBBBB','BBBWWWWBBBBB','BBNNNNNNBBWB','BNNNNNNNNWWW','NNNNNNNNNNNN','GGGGGGGGGGGG','GGGGGGGGGGGG','BBBBBBBBBBBB','BWWBBBBBWWBB','BBBBBWWBBBBB','BBBBBBBBBBBB']],
+    ['버스', ['............','YYYYYYYYYYY.','YBBYBBYBBYBY','YBBYBBYBBYBY','YYYYYYYYYYBY','YYYYYYYYYYYY','RRRRRRRRRRRR','YYYYYYYYYYYW','YYYYYYYYYYYW','.NNN....NNN.','.NWN....NWN.','GGGGGGGGGGGG']],
+    ['부엉이', ['.N........N.','.NN......NN.','.NNNNNNNNNN.','NNWWWNNWWWNN','NNWBWNNWBWNN','NNWWWOOWWWNN','NNNNNOONNNNN','NYNYNYNYNYNN','NNYNYNYNYNNN','NNNNNNNNNNNN','..NN....NN..','GGGGGGGGGGGG']],
+    ['생일 케이크', ['....R..R....','....Y..Y....','....W..W....','..WWWWWWWW..','..PPPPPPPP..','..WPWPWPWP..','.NNNNNNNNNN.','.NNNNNNNNNN.','.RRRRRRRRRR.','.NNNNNNNNNN.','.NNNNNNNNNN.','WWWWWWWWWWWW']],
+    ['무지개', ['............','..RRRRRRRR..','.RROOOOOORR.','RROOYYYYOORR','ROOYYGGYYOOR','ROYYGBBGYYOR','ROYGB..BGYOR','ROYGB..BGYOR','ROYGB..BGYOR','WWWGB..BGWWW','WWWWW..WWWWW','............']],
+    ['돛배와 해', ['BBBBBBBBBYYB','BBBBBBBBBYYB','BBBBRBBBBBBB','BBBBRRBBBBBB','BBBBRRRBBBBB','BBBBRRRRBBBB','BBBBNBBBBBBB','BNNNNNNNNNBB','BBNNNNNNNBBB','WBBBBWBBBBBW','BBWBBBBBWBBB','BBBBBBBBBBBB']]
+  ]
+};
+
+/* =========================================================
+   채점 — 위치·모양·색을 함께 봅니다.
+   - 모양: 그림 전체를 2칸까지 옮겨 가장 잘 맞는 자리에서 비교
+           (옮긴 칸만큼 조금 깎음)
+   - 위치: 옆 칸에 칠했으면 부분 점수
+   - 색: 달라도 모양이 맞으면 일부 점수, 비슷한 색은 더 쳐 줌
+   - 넓은 배경보다 작은 부분도 고르게 반영
+   - 안 칠한 칸은 계산하지 않아서, 빈 판이나 판 전체 칠하기는 낮은 점수
+   ========================================================= */
+const SIMILAR = { 2:[3,7], 3:[2,4,8], 4:[3], 5:[6], 6:[5,7], 7:[2,6], 8:[3], 1:[] };
+function colorCredit(a, b){ return a === b ? 1 : ((SIMILAR[a] || []).includes(b) ? 0.65 : 0.45); }
+function bestNear(grid, n, r, c, v){
+  let best = 0;
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    const y = r + dr, x = c + dc;
+    if (y < 0 || x < 0 || y >= n || x >= n) continue;
+    const u = grid[y * n + x]; if (!u) continue;
+    const w = u === v ? 0.25 : 0.05;
+    if (w > best) best = w;
+  }
+  return best;
+}
+function oneWay(from, to, n, wt){
+  let sum = 0, cnt = 0;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    const v = from[r * n + c]; if (!v) continue;
+    const w = wt ? (wt[v] || 0) : 1;
+    cnt += w;
+    const u = to[r * n + c];
+    sum += w * (u ? colorCredit(v, u) : bestNear(to, n, r, c, v));
+  }
+  return cnt ? sum / cnt : 0;
+}
+/* 색마다 칸 수가 달라도 작은 부분이 묻히지 않게: 넓은 배경 한 번 채우기로 높은 점수가 나오지 않음 */
+function colorWeights(t){
+  const c = {}; t.forEach(v => { if (v) c[v] = (c[v] || 0) + 1; });
+  const w = {}; Object.keys(c).forEach(k => { w[k] = Math.pow(c[k], -0.75); });
+  return w;
+}
+function scoreDrawing(target, drawn, n){
+  const t = [...target].map(Number), raw = [...(drawn || '')].map(Number);
+  if (raw.length !== n * n || !raw.some(Boolean)) return 0;
+  const wt = colorWeights(t);
+  let best = 0;
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+    const d = new Array(n * n).fill(0);
+    let lost = false;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      const v = raw[r * n + c]; if (!v) continue;
+      const y = r + dy, x = c + dx;
+      if (y < 0 || x < 0 || y >= n || x >= n) { lost = true; continue; }
+      d[y * n + x] = v;
+    }
+    if (lost) continue;
+    const rec = oneWay(t, d, n, wt), pre = oneWay(d, t, n);
+    if (rec + pre === 0) continue;
+    const f = 2 * rec * pre / (rec + pre);
+    const s = Math.pow(f, 2) * (1 - 0.04 * (Math.abs(dx) + Math.abs(dy)));
+    if (s > best) best = s;
+  }
+  return Math.round(best * 100);
+}
+
+const COLORS = ['#1C2340','#F4F5FF','#FF4F6D','#FF9F43','#FFE14D','#39FF88','#4FC3FF','#B07CFF','#B07A44'];
+const COLOR_NAMES = ['','흰색','빨강','주황','노랑','초록','파랑','보라','갈색'];
+const BAD = ['시발','씨발','ㅅㅂ','병신','ㅂㅅ','개새','새끼','좆','존나','지랄','미친','닥쳐','엿먹','fuck','shit','바보','멍청'];
+
+function clone(v){ return v == null ? null : JSON.parse(JSON.stringify(v)); }
+function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function segs(p){ return p.split('/').filter(Boolean); }
+function overlaps(a, b){ const x = segs(a), y = segs(b); const n = Math.min(x.length, y.length); for (let i = 0; i < n; i++) if (x[i] !== y[i]) return false; return true; }
+
+function makeLocalBackend(memoryOnly){
+  const KEY = 'pm-local-db';
+  let db = {};
+  if (!memoryOnly) { try { db = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { db = {}; } }
+  const ch = (!memoryOnly && 'BroadcastChannel' in window) ? new BroadcastChannel('pm-local') : null;
+  const subs = new Set();
+  function getAt(p){ let o = db; for (const k of segs(p)) { if (o == null || typeof o !== 'object') return null; o = o[k]; } return o === undefined ? null : o; }
+  function setAt(p, v){
+    const ks = segs(p); if (!ks.length) { db = v || {}; return; }
+    let o = db;
+    for (let i = 0; i < ks.length - 1; i++) { if (o[ks[i]] == null || typeof o[ks[i]] !== 'object') o[ks[i]] = {}; o = o[ks[i]]; }
+    const last = ks[ks.length - 1];
+    if (v === null || v === undefined) delete o[last]; else o[last] = clone(v);
+  }
+  function notify(paths){ for (const s of subs) if (paths.some(p => overlaps(s.path, p))) { try { s.cb(clone(getAt(s.path))); } catch (e) { console.error(e); } } }
+  function persist(){ if (memoryOnly) return; try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
+  function apply(writes, broadcast){
+    writes.forEach(([p, v]) => setAt(p, v));
+    if (broadcast) { persist(); if (ch) ch.postMessage(writes); }
+    notify(writes.map(w => w[0]));
+  }
+  if (ch) ch.onmessage = e => apply(e.data, false);
+  return {
+    mode: memoryOnly ? 'practice' : 'local',
+    waitConnected: () => Promise.resolve(true),
+    now: () => Date.now(),
+    on(path, cb){ const s = { path, cb }; subs.add(s); setTimeout(() => { if (subs.has(s)) cb(clone(getAt(path))); }, 0); return () => subs.delete(s); },
+    async get(path){ return clone(getAt(path)); },
+    async set(path, v){ apply([[path, v]], true); },
+    async transaction(path, fn){ const r = fn(clone(getAt(path))); if (r === undefined) return { committed: false }; apply([[path, r]], true); return { committed: true, value: clone(r) }; },
+    async update(path, obj){ apply(Object.keys(obj).map(k => [path + '/' + k, obj[k]]), true); },
+    push(path, v){ const id = genId(); apply([[path + '/' + id, v]], true); return id; },
+    async remove(path){ apply([[path, null]], true); },
+    presence(path){ apply([[path, true]], true); this._pres = path; if (!memoryOnly) window.addEventListener('pagehide', () => { if (this._pres === path) apply([[path, false]], true); }); },
+    unpresence(){ this._pres = null; }
+  };
+}
+
+function loadScript(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+
+async function makeFirebaseBackend(cfg){
+  await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+  await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js');
+  firebase.initializeApp(cfg);
+  const d = firebase.database();
+  let off = 0, connected = false, connCb = null; const waiters = [];
+  d.ref('.info/serverTimeOffset').on('value', s => { off = s.val() || 0; });
+  d.ref('.info/connected').on('value', s => {
+    connected = !!s.val();
+    if (connected) waiters.splice(0).forEach(f => f(true));
+    if (connCb) connCb(connected);
+  });
+  return {
+    mode: 'firebase',
+    isConnected: () => connected,
+    onConnChange(cb){ connCb = cb; },
+    waitConnected(ms){ if (connected) return Promise.resolve(true); return new Promise(res => { const t = setTimeout(() => res(false), ms); waiters.push(v => { clearTimeout(t); res(v); }); }); },
+    now: () => Date.now() + off,
+    on(p, cb){ const r = d.ref(p); const h = s => cb(s.val()); r.on('value', h); return () => r.off('value', h); },
+    async get(p){ return (await d.ref(p).get()).val(); },
+    set: (p, v) => d.ref(p).set(v),
+    transaction: (p, fn) => d.ref(p).transaction(fn).then(r => ({ committed: r.committed, value: r.snapshot.val() })),
+    update: (p, o) => d.ref(p).update(o),
+    push(p, v){ const r = d.ref(p).push(); r.set(v); return r.key; },
+    remove: p => d.ref(p).remove(),
+    presence(p){ const r = d.ref(p); this._pres = r; d.ref('.info/connected').on('value', s => { if (s.val() && this._pres === r) { r.onDisconnect().set(false); r.set(true); } }); },
+    unpresence(){ if (this._pres) { const r = this._pres; this._pres = null; return r.onDisconnect().cancel(); } },
+    /* 지금 접속 중인 사람 수 (무료 요금제 동시 접속 100명 확인용) */
+    trackPresence(onCount){
+      const me = d.ref('presence/' + genId());
+      d.ref('.info/connected').on('value', s => { if (s.val()) { me.onDisconnect().remove(); me.set(firebase.database.ServerValue.TIMESTAMP).catch(() => {}); } });
+      d.ref('presence').on('value', s => onCount(s.numChildren()), () => onCount(null));
+    }
+  };
+}
+
+const $ = s => document.querySelector(s);
+const app = $('#app');
+let B = null;
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function norm(s){ return String(s || '').toLowerCase().replace(/[\s.,!?~'"·\-_()]/g, ''); }
+function lsGet(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v){ try { localStorage.setItem(k, v); } catch (e) {} }
+function lsDel(k){ try { localStorage.removeItem(k); } catch (e) {} }
+function pidStore(){ try { return B && B.mode === 'local' ? sessionStorage : localStorage; } catch (e) { return null; } }
+function pidGet(code){ try { return pidStore().getItem('pm-pid-' + code); } catch (e) { return null; } }
+function pidSet(code, v){ try { pidStore().setItem('pm-pid-' + code, v); } catch (e) {} }
+function toast(t, ms = 1800){ const el = $('#toast'); el.textContent = t; el.classList.remove('hidden'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.add('hidden'), ms); }
+function pad5(n){ return String(Math.max(0, n | 0)).padStart(5, '0'); }
+function mmss(ms){ const s = Math.max(0, Math.ceil(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+function letterCount(w){ return [...String(w || '').replace(/\s/g, '')].length; }
+function logoHTML(){
+  const m = ['','g','','g','p','g','','g',''].map(c => `<i style="background:${c === 'g' ? 'var(--green)' : c === 'p' ? 'var(--pink)' : 'transparent'}"></i>`).join('');
+  return `<div class="logo"><div class="logo-mark" aria-hidden="true">${m}</div><div><div class="logo-title">픽셀 기억력</div><div class="logo-sub">PIXEL MEMORY</div></div></div>`;
+}
+function heartSVG(on){ return `<svg width="22" height="20" viewBox="0 0 10 9" aria-hidden="true" shape-rendering="crispEdges"><path fill="${on ? '#FF4FA3' : '#2A3150'}" d="M1 0h3v1h1V0h1h3v1h1v3h-1v1h-1v1h-1v1h-1v1h-1v1H5V8H4V7H3V6H2V5H1V4H0V1h1z"/></svg>`; }
+function seg10(ratio, cls = ''){ const on = Math.ceil(Math.max(0, Math.min(1, ratio)) * 10); let h = ''; for (let i = 0; i < 10; i++) h += `<i class="${i < on ? 'on' : ''}"></i>`; return `<div class="seg10 ${cls}">${h}</div>`; }
+function isBad(name){ const n = norm(name); return BAD.some(b => n.includes(b)); }
+
+/* 격자 그리기 */
+function drawGrid(cv, px, n, active){
+  if (!cv) return;
+  const now = performance.now();
+  if (cv._n !== n) { cv._prev = null; cv._fx = {}; cv._n = n; }
+  if (cv._prev && px && cv._prev.length === px.length) {
+    for (let i = 0; i < px.length; i++) if (px[i] !== cv._prev[i] && px[i] !== '0') cv._fx[i] = now;
+  }
+  cv._prev = px; cv._px = px; cv._active = active;
+  renderGridNow(cv);
+  if (Object.keys(cv._fx).length && !cv._raf) {
+    const loop = () => { cv._raf = null; if (!cv.isConnected) return; renderGridNow(cv); if (Object.keys(cv._fx).length) cv._raf = requestAnimationFrame(loop); };
+    cv._raf = requestAnimationFrame(loop);
+  }
+}
+function renderGridNow(cv){
+  const px = cv._px, n = cv._n, active = cv._active, fx = cv._fx || {};
+  const now = performance.now();
+  const rect = cv.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const size = Math.max(10, Math.round(rect.width * dpr));
+  if (cv.width !== size) { cv.width = size; cv.height = size; }
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#0B0F1A'; ctx.fillRect(0, 0, size, size);
+  const gap = Math.max(1, Math.round(size / n * 0.06));
+  const cell = (size - gap * (n - 1)) / n;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    const i = r * n + c;
+    const v = px ? (px.charCodeAt(i) - 48) : 0;
+    const x = Math.round(c * (cell + gap)), y = Math.round(r * (cell + gap));
+    if (fx[i] != null) {
+      const t = (now - fx[i]) / 260;
+      if (t >= 1) { delete fx[i]; }
+      else {
+        const st = Math.floor(t * 4) / 4;          /* 계단식(픽셀) 움직임 */
+        ctx.fillStyle = COLORS[0]; ctx.fillRect(x, y, Math.ceil(cell), Math.ceil(cell));
+        const k = 0.35 + 0.65 * st, sz = cell * (1 + 0.25 * (1 - st)) * k, off = (cell - sz) / 2;
+        ctx.fillStyle = COLORS[v >= 0 && v < COLORS.length ? v : 0];
+        ctx.fillRect(Math.round(x + off), Math.round(y + off), Math.ceil(sz), Math.ceil(sz));
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.55 * (1 - st)) + ')';
+        ctx.fillRect(Math.round(x + off), Math.round(y + off), Math.ceil(sz), Math.ceil(sz));
+        continue;
+      }
+    }
+    ctx.fillStyle = COLORS[v >= 0 && v < COLORS.length ? v : 0];
+    ctx.fillRect(x, y, Math.ceil(cell), Math.ceil(cell));
+  }
+  if (active) { ctx.strokeStyle = '#39FF88'; ctx.lineWidth = Math.max(2, dpr * 2); ctx.strokeRect(1, 1, size - 2, size - 2); }
+}
+function emptyPx(n){ return '0'.repeat(n * n); }
+
+/* 효과 */
+function updateBgmButtons(){
+  document.querySelectorAll('[data-act="bgm"]').forEach(b => {
+    b.classList.toggle('on', Music.on);
+    b.textContent = Music.on ? 'BGM ON' : 'BGM OFF';
+    b.setAttribute('aria-pressed', Music.on);
+    b.title = '지금 곡: ' + TRACKS[Music.track].name;
+  });
+}
+function showSplash(t1, t2, color){
+  const old = document.querySelector('.splash'); if (old) old.remove();
+  const el = document.createElement('div');
+  el.className = 'splash'; el.setAttribute('role', 'status');
+  el.innerHTML = `<div class="bars" aria-hidden="true"><i style="background:${color}"></i><i style="background:${color}"></i><i style="background:${color}"></i></div><div class="t1" style="color:${color}">${esc(t1)}</div><div class="t2">${esc(t2)}</div>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1800);
+}
+function confetti(){
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const box = document.createElement('div'); box.className = 'confetti'; box.setAttribute('aria-hidden', 'true');
+  let h = '';
+  for (let i = 0; i < 46; i++) {
+    const c = COLORS[1 + Math.floor(Math.random() * 8)], sz = 8 + Math.floor(Math.random() * 3) * 4;
+    h += `<i style="left:${Math.random() * 100}%;width:${sz}px;height:${sz}px;background:${c};animation-duration:${1.4 + Math.random() * 1.4}s;animation-delay:${Math.random() * 0.4}s"></i>`;
+  }
+  box.innerHTML = h; document.body.appendChild(box);
+  setTimeout(() => box.remove(), 3400);
+}
+function animateEnter(){ const el = app.firstElementChild; if (el) { el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); } }
+
+/* 배경음악: 직접 만든 8비트 곡 (Web Audio로 실시간 연주) */
+/* 직접 만든 8비트 곡 5개 — 게임을 시작할 때마다 하나를 골라요 */
+const TRACKS = [
+{ name: '픽셀 행진', bpm: 132, wave: 'square', mel: [72,0,76,79,76,0,72,74,76,0,72,69,72,0,76,77,77,0,81,77,72,0,77,79,79,0,74,71,74,76,79,0,84,0,79,76,79,0,84,83,81,0,76,72,76,0,81,79,77,81,79,77,74,77,76,74,72,0,76,0,72,0,0,0], bass: [48,55,48,55,45,52,45,52,41,48,41,48,43,50,43,50,48,55,48,55,45,52,45,52,41,48,43,50,48,55,48,0] },
+{ name: '통통 퍼즐', bpm: 140, wave: 'square', mel: [79,0,74,0,71,74,79,0,76,0,71,0,67,71,76,0,72,76,79,76,72,0,76,0,74,78,81,78,74,0,0,0,79,81,83,81,79,0,74,0,76,79,83,79,76,0,71,0,72,74,76,72,74,76,78,74,79,0,74,0,67,0,0,0], bass: [43,50,43,50,40,47,40,47,36,43,36,43,38,45,38,45,43,50,43,50,40,47,40,47,36,43,38,45,43,50,43,0] },
+{ name: '느긋한 오후', bpm: 104, wave: 'triangle', mel: [72,0,0,69,72,0,74,0,74,0,0,72,69,0,0,0,70,0,74,0,72,70,69,0,67,0,0,0,72,0,0,0,77,0,76,0,74,72,0,0,74,0,72,0,69,0,0,0,70,72,74,0,76,0,72,0,77,0,0,0,0,0,0,0], bass: [41,48,45,48,38,45,41,45,34,41,38,41,36,43,40,43,41,48,45,48,38,45,41,45,34,41,36,43,41,48,41,0] },
+{ name: '두근두근 추리', bpm: 150, wave: 'square', mel: [69,0,72,69,76,0,72,0,69,0,72,69,77,0,76,0,74,0,77,74,81,0,77,0,76,0,80,0,83,0,80,0,81,79,77,76,77,76,74,72,74,72,71,69,71,0,68,0,69,72,76,72,77,76,74,71,69,0,64,0,69,0,0,0], bass: [45,52,45,52,41,48,41,48,38,45,38,45,40,47,40,47,45,52,41,48,38,45,40,47,45,52,40,47,45,52,45,0] },
+{ name: '신나는 질주', bpm: 168, wave: 'square', mel: [74,78,81,78,86,0,81,0,83,0,79,0,74,79,83,0,81,0,78,0,74,78,81,0,81,83,85,83,81,0,0,0,86,0,85,83,81,0,78,0,79,0,83,0,86,0,83,0,81,79,78,76,78,79,81,85,86,0,81,0,74,0,0,0], bass: [38,45,38,45,43,50,43,50,38,45,38,45,45,52,45,52,38,45,38,45,43,50,43,50,45,52,45,52,38,45,38,0] }
+];
+const Music = {
+  ctx: null, master: null, on: false, timer: null, step: 0, next: 0, noiseBuf: null, track: Math.floor(Math.random() * TRACKS.length),
+  pick(){ if (TRACKS.length > 1) { let t; do { t = Math.floor(Math.random() * TRACKS.length); } while (t === this.track); this.track = t; } this.step = 0; if (this.ctx) this.next = this.ctx.currentTime + 0.08; updateBgmButtons(); },
+  init(){
+    if (this.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.gain.value = 0.06; this.master.connect(this.ctx.destination);
+    const len = Math.floor(this.ctx.sampleRate * 0.05); this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = this.noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  },
+  start(){ this.init(); if (!this.ctx) return; this.ctx.resume(); this.on = true; this.step = 0; this.next = this.ctx.currentTime + 0.06; clearInterval(this.timer); this.timer = setInterval(() => this.schedule(), 25); },
+  stop(){ this.on = false; clearInterval(this.timer); },
+  toggle(){ if (this.on) this.stop(); else this.start(); return this.on; },
+  schedule(){
+    const fast = S.state && S.state.phase === 'draw' && S.state.drawEndsAt - B.now() < 5000;
+    const T = TRACKS[this.track];
+    const spb = 60 / (T.bpm * (fast ? 1.25 : 1)) / 2;
+    while (this.next < this.ctx.currentTime + 0.12) { this.play(this.step, this.next, spb); this.next += spb; this.step = (this.step + 1) % T.mel.length; }
+  },
+  tone(type, midi, t, dur, vol){
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+  },
+  hat(t){ const s = this.ctx.createBufferSource(), g = this.ctx.createGain(), f = this.ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 6000; s.buffer = this.noiseBuf; g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.04); s.connect(f); f.connect(g); g.connect(this.master); s.start(t); },
+  play(i, t, spb){
+    const T = TRACKS[this.track];
+    if (T.mel[i]) this.tone(T.wave, T.mel[i], t, spb * 0.85, T.wave === 'triangle' ? 0.8 : 0.45);
+    if (i % 2 === 0 && T.bass[i / 2]) this.tone(T.wave === 'triangle' ? 'square' : 'triangle', T.bass[i / 2], t, spb * 1.8, T.wave === 'triangle' ? 0.25 : 0.9);
+    if (i % 2 === 1) this.hat(t);
+  }
+};
+
+/* =========================================================
+   그림 도우미
+   ========================================================= */
+const LETTER = { '.':'0', W:'1', R:'2', O:'3', Y:'4', G:'5', B:'6', P:'7', N:'8' };
+function picRows(n, i){ return PICS[n][i][1]; }
+function picName(n, i){ return PICS[n][i][0]; }
+function picPx(n, i){ return picRows(n, i).join('').replace(/./g, c => LETTER[c]); }
+function picColors(px){ return [...new Set(px.replace(/0/g, ''))].sort().join(''); }
+
+const ROUNDS = {
+  3: [8, 10, 12],
+  5: [8, 8, 10, 10, 12],
+  7: [8, 8, 10, 10, 10, 12, 12]
+};
+const READY_MS = 3000, DRAW_SEC = 40, GRACE_MS = 1200, STAGE0_MS = 6000, STAGE1_MS = 5000;
+const TIPS = [
+  ['전체 모양부터', '칸을 세기 전에 무슨 그림인지 먼저 잡아요.'],
+  ['칸 수 세기', '그림의 가로 폭이 몇 칸인지 세어 두면 크기가 맞아요.'],
+  ['가운데 기준', '판의 가운데를 기준으로 어디에 놓였는지 봐요.'],
+  ['색 나누기', '색별로 어떤 자리에 있는지 나누어 기억해요.'],
+  ['말로 외우기', '"빨간 지붕, 파란 창문"처럼 말로 바꾸면 오래가요.'],
+  ['대칭 찾기', '왼쪽과 오른쪽이 같으면 절반만 외워도 돼요.'],
+  ['틀린 곳 살피기', '많은 친구가 놓친 칸은 눈에 잘 안 띄는 자리예요.']
+];
+function tipFor(r){ return TIPS[(r - 1) % TIPS.length]; }
+
+function makePlan(rounds){
+  let used = {}; try { used = JSON.parse(lsGet('pm-used') || '{}') || {}; } catch (e) {}
+  const plan = (ROUNDS[rounds] || ROUNDS[5]).map((n, idx, arr) => {
+    let pool = PICS[n].map((_, i) => i).filter(i => !(used[n] || []).includes(i));
+    if (!pool.length) { used[n] = []; pool = PICS[n].map((_, i) => i); }
+    const i = pool[Math.floor(Math.random() * pool.length)];
+    (used[n] = used[n] || []).push(i);
+    const sameBefore = arr.slice(0, idx).filter(x => x === n).length;
+    return { n, i, view: n === 12 ? 10 : (sameBefore ? 8 : 10), draw: DRAW_SEC };
+  });
+  lsSet('pm-used', JSON.stringify(used));
+  return plan;
+}
+
+/* 작은 효과음 */
+function sfx(notes, gap = 0.09, vol = 1.6){
+  try {
+    Music.init(); if (!Music.ctx) return; Music.ctx.resume();
+    const t = Music.ctx.currentTime + 0.02;
+    notes.forEach((m, i) => Music.tone('square', m, t + i * gap, gap * 1.4, vol));
+  } catch (e) {}
+}
+
+/* =========================================================
+   상태
+   ========================================================= */
+const S = {
+  code: null, role: null, pid: null, hostKey: null,
+  meta: null, state: null, players: {}, unsubs: [], viewKey: '', tick: null,
+  plan: null, advancing: '', drawsUnsub: null, drawsRound: null, liveDraws: {}, rv: null, armed: null, animated: '',
+  mineRound: null, localPx: null, color: 1, tool: 'pen', undo: [], drawing: false, lastCell: null, writeT: null, submitted: false, locked: false,
+  myResult: null, myTotal: null, resUnsub: null, totUnsub: null, seenSelf: false, history: null
+};
+function players(){ return Object.entries(S.players || {}).filter(([, p]) => p && p.name).map(([id, p]) => ({ id, ...p })); }
+function onlinePlayers(){ return players().filter(p => p.online !== false); }
+function settings(){ return { rounds: 5, ...((S.meta && S.meta.settings) || {}) }; }
+function roomPath(sub = ''){ return 'rooms/' + S.code + (sub ? '/' + sub : ''); }
+function clearSubs(){
+  S.unsubs.forEach(u => u()); S.unsubs = [];
+  if (S.drawsUnsub) { S.drawsUnsub(); S.drawsUnsub = null; } S.drawsRound = null;
+  if (S.resUnsub) { S.resUnsub(); S.resUnsub = null; }
+  if (S.totUnsub) { S.totUnsub(); S.totUnsub = null; }
+  clearInterval(S.tick); clearTimeout(S.writeT);
+}
+function subscribeRoom(){
+  clearSubs();
+  S.unsubs.push(B.on(roomPath('meta'), v => { S.meta = v; render(); }));
+  S.unsubs.push(B.on(roomPath('state'), v => { S.state = v; onState(); render(); }));
+  S.unsubs.push(B.on(roomPath('players'), v => { S.players = v || {}; onPlayers(); render(); }));
+  S.tick = setInterval(onTick, 250);
+}
+function onPlayers(){
+  if (S.role !== 'player') return;
+  const me = S.players[S.pid];
+  if (me && me.name) S.seenSelf = true;
+  else if (S.seenSelf) {
+    S.seenSelf = false;
+    B.unpresence && B.unpresence();
+    goHome(); toast('선생님이 방에서 내보냈어요', 3000);
+  }
+}
+function onState(){
+  const s = S.state; if (!s) return;
+  if (S.role === 'host') hostOnState();
+  if (S.role === 'player') playerOnState();
+}
+
+/* =========================================================
+   선생님 쪽 진행
+   ========================================================= */
+async function createRoom(){
+  let code = '';
+  for (let i = 0; i < 20; i++) {
+    code = String(Math.floor(1000 + Math.random() * 9000));
+    const ex = await B.get('rooms/' + code + '/meta');
+    if (!ex) break;
+  }
+  const hostKey = genId();
+  S.code = code; S.role = 'host'; S.hostKey = hostKey;
+  lsSet('pm-host', JSON.stringify({ code, hostKey, at: Date.now() }));
+  await B.set('rooms/' + code, { meta: { created: B.now(), hostKey, settings: { rounds: 5 } }, state: { phase: 'lobby', round: 0 } });
+  history.replaceState(null, '', location.pathname + '?host=' + code);
+  subscribeRoom();
+}
+async function resumeHost(code){
+  const meta = await B.get('rooms/' + code + '/meta');
+  let saved = null; try { saved = JSON.parse(lsGet('pm-host') || 'null'); } catch (e) {}
+  if (!meta || !saved || saved.code !== code || saved.hostKey !== meta.hostKey) return false;
+  S.code = code; S.role = 'host'; S.hostKey = saved.hostKey;
+  try { S.plan = JSON.parse(lsGet('pm-plan-' + code) || 'null'); } catch (e) { S.plan = null; }
+  subscribeRoom();
+  return true;
+}
+function hostOnState(){
+  const s = S.state;
+  if (s.phase === 'draw' && S.drawsRound !== s.round) {
+    if (S.drawsUnsub) S.drawsUnsub();
+    S.drawsRound = s.round; S.liveDraws = {};
+    S.drawsUnsub = B.on(roomPath('draws/' + s.round), v => { S.liveDraws = v || {}; updateDynamic(); });
+  }
+  if (s.phase !== 'draw' && S.drawsUnsub) { S.drawsUnsub(); S.drawsUnsub = null; S.drawsRound = null; }
+  if (s.phase === 'reveal' && (!S.rv || S.rv.round !== s.round)) loadReveal();
+}
+async function startGame(){
+  const rounds = settings().rounds;
+  S.plan = makePlan(rounds);
+  lsSet('pm-plan-' + S.code, JSON.stringify(S.plan));
+  const ups = { draws: null, results: null, totals: null };
+  await B.update(roomPath(), ups);
+  sfx([72, 76, 79, 84]);
+  startRound(1);
+}
+function startRound(r){
+  const p = S.plan[r - 1]; const now = B.now();
+  S.rv = null; S.advancing = '';
+  B.set(roomPath('state'), {
+    phase: 'view', round: r, total: S.plan.length, n: p.n,
+    colors: picColors(picPx(p.n, p.i)), viewSec: p.view,
+    viewAt: now + READY_MS, viewEndsAt: now + READY_MS + p.view * 1000
+  });
+}
+function onceFor(tag){ if (S.advancing === tag) return false; S.advancing = tag; return true; }
+function hostTick(){
+  const s = S.state; if (!s) return;
+  const now = B.now();
+  if (s.phase === 'view' && now >= s.viewEndsAt && onceFor('draw:' + s.round)) {
+    const p = S.plan && S.plan[s.round - 1];
+    B.set(roomPath('state'), { phase: 'draw', round: s.round, total: s.total, n: s.n, colors: s.colors, drawEndsAt: now + (p ? p.draw : DRAW_SEC) * 1000 });
+    sfx([79, 74]);
+  }
+  if (s.phase === 'draw') {
+    const on = onlinePlayers();
+    const allDone = on.length > 0 && on.every(p => S.liveDraws[p.id] && S.liveDraws[p.id].done);
+    if ((now >= s.drawEndsAt + GRACE_MS || allDone) && onceFor('finish:' + s.round)) finishRound(s.round);
+  }
+  if (s.phase === 'reveal' && s.stage < 2) {
+    const wait = s.stage === 0 ? STAGE0_MS : STAGE1_MS;
+    if (now >= s.stageAt + wait && onceFor('stage:' + s.round + ':' + (s.stage + 1))) setStage(s.stage + 1);
+  }
+}
+function setStage(st){ return B.update(roomPath('state'), { stage: st, stageAt: B.now() }); }
+function rankList(map){
+  const arr = Object.entries(map).map(([id, v]) => ({ id, v })).sort((a, b) => b.v - a.v);
+  let last = null, rank = 0;
+  arr.forEach((x, i) => { if (x.v !== last) { rank = i + 1; last = x.v; } x.rank = rank; });
+  return arr;
+}
+async function finishRound(r){
+  const s = S.state; const p = S.plan[r - 1];
+  const target = picPx(p.n, p.i);
+  const draws = (await B.get(roomPath('draws/' + r))) || {};
+  const prev = (await B.get(roomPath('totals'))) || {};
+  const scores = {}, totals = {};
+  players().forEach(pl => { const d = draws[pl.id]; scores[pl.id] = scoreDrawing(target, d && d.px, p.n); totals[pl.id] = (prev[pl.id] || 0) + scores[pl.id]; });
+  const rr = rankList(scores), tr = rankList(totals);
+  const tRank = {}; tr.forEach(x => { tRank[x.id] = x.rank; });
+  const results = {};
+  rr.forEach(x => { results[x.id] = { s: x.v, r: x.rank, t: totals[x.id], tr: tRank[x.id], np: rr.length }; });
+  await B.update(roomPath(), { ['results/' + r]: results, totals });
+  buildReveal(r, p, draws, results);
+  await B.set(roomPath('state'), { phase: 'reveal', round: r, total: s.total, n: p.n, pic: { n: p.n, i: p.i }, stage: 0, stageAt: B.now() });
+  sfx([67, 71, 74]);
+}
+function buildReveal(r, p, draws, results){
+  const ids = Object.keys(draws).filter(id => draws[id] && /[1-9]/.test(draws[id].px || '') && S.players[id]);
+  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+  S.rv = { round: r, n: p.n, i: p.i, target: picPx(p.n, p.i), draws, results, order: ids, hidden: {} };
+}
+async function loadReveal(){
+  const s = S.state; const r = s.round;
+  const draws = (await B.get(roomPath('draws/' + r))) || {};
+  const results = (await B.get(roomPath('results/' + r))) || {};
+  const pl = await B.get(roomPath('players'));
+  if (!S.state || S.state.round !== r) return;
+  if (pl) S.players = pl;
+  buildReveal(r, s.pic, draws, results);
+  render(true);
+}
+function hostNext(){
+  const s = S.state; if (!s) return;
+  if (s.phase === 'reveal') {
+    if (s.stage < 2) { S.advancing = 'stage:' + s.round + ':' + (s.stage + 1); setStage(s.stage + 1); return; }
+    if (s.round < s.total) startRound(s.round + 1); else finishGame();
+  }
+}
+async function finishGame(){
+  const s = S.state;
+  const totals = (await B.get(roomPath('totals'))) || {};
+  const all = (await B.get(roomPath('results'))) || {};
+  const rounds = []; for (let r = 1; r <= s.total; r++) rounds.push(all[r] || {});
+  const ranked = rankList(totals).filter(x => S.players[x.id]);
+  const top = ranked.slice(0, 3).map(x => ({ id: x.id, name: S.players[x.id].name, t: x.v, rank: x.rank }));
+  const topIds = top.map(x => x.id);
+  /* 칭찬하는 상만: 꼴찌를 드러내는 상은 만들지 않음 */
+  const stats = ranked.map(x => {
+    const sc = rounds.map(rr => rr[x.id] ? rr[x.id].s : 0);
+    const avg = sc.reduce((a, b) => a + b, 0) / sc.length;
+    return { id: x.id, sc, sd: Math.sqrt(sc.reduce((a, b) => a + (b - avg) * (b - avg), 0) / sc.length), avg, up: sc[sc.length - 1] - sc[0] };
+  });
+  const others = stats.filter(x => !topIds.includes(x.id));
+  const pool = others.length ? others : stats;
+  const awards = [];
+  const riser = [...pool].sort((a, b) => b.up - a.up)[0];
+  if (riser && riser.up > 0) awards.push({ title: '쑥쑥 성장상', name: S.players[riser.id].name });
+  const steady = [...pool].filter(x => !riser || x.id !== riser.id || pool.length === 1).filter(x => x.avg >= 30).sort((a, b) => a.sd - b.sd)[0];
+  if (steady && (!riser || steady.id !== riser.id)) awards.push({ title: '한결같은 기억상', name: S.players[steady.id].name });
+  const avgAll = stats.length ? Math.round(stats.reduce((a, b) => a + b.avg, 0) / stats.length) : 0;
+  const pics = (S.plan || []).map(p => ({ n: p.n, i: p.i }));
+  await B.set(roomPath('state'), { phase: 'end', round: s.total, total: s.total, top, awards, avgAll, pics });
+  sfx([72, 76, 79, 84, 88], 0.12);
+  setTimeout(confetti, 300);
+}
+async function hostNewGame(){
+  await B.update(roomPath(), { draws: null, results: null, totals: null });
+  S.rv = null; S.advancing = ''; S.plan = null;
+  B.set(roomPath('state'), { phase: 'lobby', round: 0 });
+}
+
+/* =========================================================
+   학생 쪽 진행
+   ========================================================= */
+async function joinRoom(code, name){
+  const meta = await B.get('rooms/' + code + '/meta');
+  if (!meta) return '방 코드를 찾을 수 없어요';
+  const pl = (await B.get('rooms/' + code + '/players')) || {};
+  let pid = pidGet(code);
+  if (pid && pl[pid] && pl[pid].name) {
+    if (name && pl[pid].name !== name) {
+      if (Object.entries(pl).some(([id, p]) => id !== pid && p.name === name)) return '이미 같은 이름의 친구가 있어요';
+      await B.update('rooms/' + code + '/players/' + pid, { name });
+    }
+  } else {
+    if (Object.values(pl).some(p => p.name === name)) return '이미 같은 이름의 친구가 있어요';
+    pid = genId();
+    await B.set('rooms/' + code + '/players/' + pid, { name, joined: B.now(), online: true });
+    pidSet(code, pid);
+  }
+  lsSet('pm-name', name);
+  S.code = code; S.role = 'player'; S.pid = pid;
+  B.presence('rooms/' + code + '/players/' + pid + '/online');
+  history.replaceState(null, '', location.pathname + '?room=' + code);
+  subscribeRoom();
+  return null;
+}
+function playerOnState(){
+  const s = S.state;
+  if (s.round && s.round !== S.mineRound) {
+    S.mineRound = s.round;
+    S.localPx = emptyPx(s.n); S.undo = []; S.tool = 'pen'; S.submitted = false; S.locked = false; S.myResult = null;
+    S.color = Number((s.colors || '1')[0]);
+    if (S.resUnsub) S.resUnsub();
+    S.resUnsub = B.on(roomPath('results/' + s.round + '/' + S.pid), v => { S.myResult = v; render(true); });
+    if (!S.totUnsub) S.totUnsub = B.on(roomPath('totals/' + S.pid), v => { S.myTotal = v; updateDynamic(); });
+    B.get(roomPath('draws/' + s.round + '/' + S.pid)).then(d => {
+      if (d && d.px && d.px.length === s.n * s.n && S.mineRound === s.round && !/[1-9]/.test(S.localPx)) { S.localPx = d.px; S.submitted = !!d.done; render(true); }
+    });
+  }
+  if (s.phase === 'lobby') { S.mineRound = null; S.history = null; S.myTotal = null; }
+  if (s.phase === 'end' && !S.history) loadHistory();
+}
+async function loadHistory(){
+  const s = S.state; S.history = [];
+  const h = [];
+  for (let r = 1; r <= s.total; r++) {
+    const d = await B.get(roomPath('draws/' + r + '/' + S.pid));
+    const res = await B.get(roomPath('results/' + r + '/' + S.pid));
+    const pic = (s.pics || [])[r - 1];
+    h.push({ r, px: d && d.px, s: res ? res.s : 0, pic });
+  }
+  S.history = h; render(true);
+}
+function writeDraw(force){
+  if (S.practice) return;
+  clearTimeout(S.writeT);
+  const s = S.state;
+  const go = () => { if (S.state && S.state.round === s.round) B.set(roomPath('draws/' + s.round + '/' + S.pid), { px: S.localPx, done: !!S.submitted }); };
+  if (force) go(); else S.writeT = setTimeout(go, 700);
+}
+function canPaint(){ const s = S.state; return (S.role === 'player' || S.practice) && s && s.phase === 'draw' && !S.submitted && !S.locked; }
+function paintBoard(){
+  const s = S.state; if (!s) return;
+  document.querySelectorAll('canvas[data-grid="edit"]').forEach(cv => drawGrid(cv, S.localPx, s.n, canPaint()));
+}
+function cellFromEvent(cv, e, n){
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  if (x < 0 || y < 0 || x >= 1 || y >= 1) return null;
+  return { r: Math.floor(y * n), c: Math.floor(x * n) };
+}
+function setCell(i, ch){ S.localPx = S.localPx.slice(0, i) + ch + S.localPx.slice(i + 1); }
+function paintCell(cell, n){ if (cell) setCell(cell.r * n + cell.c, S.tool === 'erase' ? '0' : String(S.color)); }
+function paintLine(a, b, n){
+  if (!a) { paintCell(b, n); return; }
+  let x0 = a.c, y0 = a.r; const x1 = b.c, y1 = b.r;
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) { paintCell({ r: y0, c: x0 }, n); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } }
+}
+function floodFill(cell, n){
+  if (!cell) return;
+  const from = S.localPx[cell.r * n + cell.c], to = String(S.color);
+  if (from === to) return;
+  const a = [...S.localPx], st = [[cell.r, cell.c]];
+  while (st.length) {
+    const [r, c] = st.pop();
+    if (r < 0 || c < 0 || r >= n || c >= n || a[r * n + c] !== from) continue;
+    a[r * n + c] = to;
+    st.push([r + 1, c], [r - 1, c], [r, c + 1], [r, c - 1]);
+  }
+  S.localPx = a.join('');
+}
+function bindDrawing(cv){
+  const n = S.state.n;
+  cv.addEventListener('pointerdown', e => {
+    if (!canPaint()) return;
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (er) {}
+    S.undo.push(S.localPx); if (S.undo.length > 40) S.undo.shift();
+    const cell = cellFromEvent(cv, e, n);
+    if (S.tool === 'fill') { floodFill(cell, n); paintBoard(); writeDraw(); return; }
+    S.drawing = true; S.lastCell = cell; paintCell(cell, n);
+    paintBoard(); writeDraw();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!S.drawing || !canPaint()) return;
+    e.preventDefault();
+    const cell = cellFromEvent(cv, e, n); if (!cell) return;
+    if (S.lastCell && cell.r === S.lastCell.r && cell.c === S.lastCell.c) return;
+    paintLine(S.lastCell, cell, n); S.lastCell = cell;
+    paintBoard(); writeDraw();
+  });
+  const end = () => { if (!S.drawing) return; S.drawing = false; S.lastCell = null; writeDraw(true); };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end); cv.addEventListener('lostpointercapture', end);
+}
+
+/* =========================================================
+   화면 공통
+   ========================================================= */
+function render(force){
+  if (!S.code) return;
+  if (S.practice) renderPractice(force);
+  else if (S.role === 'host') renderHost(force); else renderPlayer(force);
+  updateDynamic();
+}
+function onTick(){
+  if (S.practice) { practiceTick(); render(); return; }
+  if (S.role === 'host') hostTick();
+  if (S.role === 'player') {
+    const s = S.state;
+    if (s && s.phase === 'draw' && !S.locked && B.now() >= s.drawEndsAt) { S.locked = true; S.drawing = false; writeDraw(true); render(true); }
+  }
+  render();
+}
+function topbarHTML(){
+  const s = S.state;
+  return `<div class="topbar">${logoHTML()}<div class="chips">
+    <div class="chip code"><span style="font-size:10px">CODE</span><b>${esc(S.code)}</b></div>
+    <div class="chip">P ${onlinePlayers().length}</div>
+    ${s.round ? `<div class="chip round">ROUND ${s.round}/${s.total}</div>` : ''}
+    <button class="chip bgm ${Music.on ? 'on' : ''}" data-act="bgm" aria-pressed="${Music.on}" aria-label="배경음악 켜기 끄기">${Music.on ? 'BGM ON' : 'BGM OFF'}</button></div></div>`;
+}
+function joinURL(){ return location.origin + location.pathname + '?room=' + S.code; }
+function makeQR(){
+  const el = $('#qr'); if (!el) return;
+  if (typeof QRCode === 'undefined') { el.innerHTML = '<span style="color:#333;font-size:16px;padding:10px">QR을 불러오지 못했어요.<br>코드를 입력해 주세요.</span>'; return; }
+  el.innerHTML = ''; new QRCode(el, { text: joinURL(), width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+}
+function plainGrid(cv, px, n){ if (cv) { cv._prev = null; drawGrid(cv, px, n, false); } }
+
+/* 썸네일: 원본과 겹쳐 보기 — 맞은 칸은 그대로, 놓친 칸은 흐리게, 색이 다른 칸은 가운데에 원본 색 */
+function paintThumb(cv, px, target, n, overlay){
+  const rect = cv.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const size = Math.max(10, Math.round(rect.width * dpr));
+  if (cv.width !== size) { cv.width = size; cv.height = size; }
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#0B0F1A'; ctx.fillRect(0, 0, size, size);
+  const gap = Math.max(1, Math.round(size / n * 0.05)), cell = (size - gap * (n - 1)) / n;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    const i = r * n + c, v = +px[i], t = +target[i];
+    const x = Math.round(c * (cell + gap)), y = Math.round(r * (cell + gap)), w = Math.ceil(cell);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = COLORS[v]; ctx.fillRect(x, y, w, w);
+    if (!overlay) continue;
+    if (!v && t) { ctx.globalAlpha = 0.38 * overlay; ctx.fillStyle = COLORS[t]; ctx.fillRect(x, y, w, w); }
+    else if (v && !t) { ctx.globalAlpha = 0.72 * overlay; ctx.fillStyle = '#0B0F1A'; ctx.fillRect(x, y, w, w); }
+    else if (v && t && v !== t) { ctx.globalAlpha = overlay; ctx.fillStyle = COLORS[t]; const q = Math.ceil(w * 0.5), o = Math.floor((w - q) / 2); ctx.fillRect(x + o, y + o, q, q); }
+  }
+  ctx.globalAlpha = 1;
+}
+function heatCounts(){
+  const rv = S.rv; const n = rv.n; const c = new Array(n * n).fill(0); let cnt = 0;
+  rv.order.forEach(id => {
+    if (rv.hidden[id]) return;
+    cnt++;
+    const px = rv.draws[id].px;
+    for (let i = 0; i < px.length; i++) if (px[i] !== '0') c[i]++;
+  });
+  return { c, cnt };
+}
+function paintHeat(cv){
+  const rv = S.rv; if (!cv || !rv) return;
+  const { c, cnt } = heatCounts(), n = rv.n;
+  const rect = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1, size = Math.max(10, Math.round(rect.width * dpr));
+  if (cv.width !== size) { cv.width = size; cv.height = size; }
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#0B0F1A'; ctx.fillRect(0, 0, size, size);
+  const gap = Math.max(1, Math.round(size / n * 0.05)), cell = (size - gap * (n - 1)) / n;
+  const RAMP = ['#1C2340', '#2F3F6B', '#3F6F86', '#5FA88A', '#A8D66E', '#FFE14D'];
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {
+    const v = cnt ? c[r * n + k] / cnt : 0;
+    ctx.fillStyle = v ? RAMP[Math.min(5, 1 + Math.floor(v * 5))] : RAMP[0];
+    ctx.fillRect(Math.round(k * (cell + gap)), Math.round(r * (cell + gap)), Math.ceil(cell), Math.ceil(cell));
+  }
+}
+function memoryStat(){
+  const rv = S.rv; const { c, cnt } = heatCounts();
+  let inT = 0, got = 0;
+  for (let i = 0; i < rv.target.length; i++) if (rv.target[i] !== '0') { inT++; if (cnt && c[i] / cnt >= 0.5) got++; }
+  const vals = Object.values(rv.results).map(x => x.s);
+  const avg = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+  return { avg, pct: inT ? Math.round(got / inT * 100) : 0, cnt };
+}
+
+/* ---------- 선생님 화면 ---------- */
+function renderHost(force){
+  const s = S.state; if (!s || !S.meta) return;
+  let k = 'h:' + s.phase + ':' + (s.round || 0);
+  if (s.phase === 'lobby') k += ':' + settings().rounds + ':' + JSON.stringify(players().map(p => [p.id, p.name, p.online])) + ':' + S.armed;
+  if (s.phase === 'view') k += ':' + (B.now() >= s.viewAt);
+  if (s.phase === 'reveal') k += ':' + s.stage + ':' + !!S.rv + ':' + (S.rv ? Object.keys(S.rv.hidden).filter(x => S.rv.hidden[x]).join(',') : '') + ':' + (S.layoutV || 0);
+  if (!force && k === S.viewKey) return;
+  const screenChanged = k.split(':').slice(0, 3).join(':') !== S.viewKey.split(':').slice(0, 3).join(':');
+  S.viewKey = k;
+  if (s.phase === 'lobby') app.innerHTML = hostLobbyHTML();
+  else if (s.phase === 'view') app.innerHTML = hostViewHTML();
+  else if (s.phase === 'draw') app.innerHTML = hostDrawHTML();
+  else if (s.phase === 'reveal') app.innerHTML = hostRevealHTML();
+  else if (s.phase === 'end') app.innerHTML = hostEndHTML();
+  if (s.phase === 'lobby') makeQR();
+  if (s.phase === 'view' && B.now() >= s.viewAt) {
+    const p = S.plan && S.plan[s.round - 1];
+    if (p) plainGrid($('#srcGrid'), picPx(p.n, p.i), p.n);
+  }
+  if (s.phase === 'reveal') afterReveal();
+  if (screenChanged) animateEnter();
+}
+function hostLobbyHTML(){
+  const st = settings();
+  const pl = players().sort((a, b) => (a.joined || 0) - (b.joined || 0));
+  const online = onlinePlayers().length;
+  const seg = [3, 5, 7].map(v => `<button data-set="rounds" data-val="${v}" class="${st.rounds === v ? 'on' : ''}">${v}판</button>`).join('');
+  const est = Math.ceil(st.rounds * 1.5);
+  return `<div class="board">${topbarHTML()}
+  <div class="lobby">
+    <div class="panel g lobby-join">
+      <div class="tagpix" style="color:var(--green)">INSERT COIN</div>
+      <div style="font-size:22px">휴대폰으로 QR을 찍거나<br>코드를 입력해서 들어와요</div>
+      <div class="qr" id="qr"><span class="muted" style="color:#333">QR 준비 중</span></div>
+      <div class="bigcode">${esc(S.code)}</div>
+      <div class="url">${esc(joinURL())}</div>
+      <button class="btn pink" data-act="start" style="height:60px;font-size:24px;width:100%" ${online < 1 ? 'disabled' : ''}>게임 시작 ▶</button>
+      <button class="btn ghost small" data-act="gohome" style="width:100%">처음으로</button>
+    </div>
+    <div class="lobby-right">
+      <div class="panel p">
+        <div class="panel-h"><span class="tagpix" style="color:var(--pink)">PLAYERS ${online}</span><span class="muted" style="font-size:17px">이름을 두 번 누르면 내보내요</span></div>
+        <div class="names">${pl.length ? pl.map(p => `<button class="name-chip ${p.online === false ? 'off' : ''} ${S.armed === p.id ? 'armed' : ''}" data-kick="${esc(p.id)}">${S.armed === p.id ? '내보내기?' : esc(p.name)}</button>`).join('') : '<span class="muted blink" style="font-size:20px">친구들을 기다리는 중...</span>'}</div>
+      </div>
+      <div class="panel y">
+        <div class="panel-h"><span class="tagpix" style="color:var(--yellow)">SETTING</span><span class="muted" style="font-size:17px">약 ${est}분 걸려요</span></div>
+        <div class="set-row"><span class="lb">라운드</span><div class="seg" role="group">${seg}</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><span class="tagpix" style="color:var(--blue)">HOW TO</span></div>
+        <div style="font-size:21px;line-height:1.55">1. 칠판의 그림을 잠깐 봐요. 그림은 칠판에만 나와요.<br>2. 그림이 사라지면 내 기기에 기억나는 대로 칠해요.<br>3. 모두의 그림을 이름 없이 함께 보고, 원본과 겹쳐 점수를 매겨요.<br>4. 1~3등만 이름을 공개해요. 내 등수는 내 기기에서만 보여요.</div>
+      </div>
+    </div>
+  </div></div>`;
+}
+function hostViewHTML(){
+  const s = S.state;
+  if (B.now() < s.viewAt) {
+    return `<div class="board">${topbarHTML()}<div class="mv">
+      <div class="mv-t">칠판을 잘 보세요. 곧 그림이 나와요!</div>
+      <div class="big-num" id="readyNum">3</div>
+      <div class="mv-t muted" style="font-size:26px">${s.n}×${s.n} 판 · ${s.viewSec}초 동안 보여 줘요</div>
+    </div></div>`;
+  }
+  return `<div class="board">${topbarHTML()}<div class="mv">
+    <div class="mv-grid"><canvas id="srcGrid" aria-label="기억할 그림"></canvas></div>
+    <div class="mv-bar" id="viewSeg">${seg10(1, 'y')}</div>
+    <div class="mv-time" id="viewTime">${s.viewSec}</div>
+  </div></div>`;
+}
+function hostDrawHTML(){
+  return `<div class="board">${topbarHTML()}<div class="mv">
+    <div class="mv-t">그림이 사라졌어요! 기억나는 대로 칠해요</div>
+    <div class="mv-time" id="drawTime">00:40</div>
+    <div class="mv-bar" id="drawSeg">${seg10(1, 'y')}</div>
+    <div class="ctr3">
+      <div class="panel g"><b id="cntPaint">0</b><span>칠하는 중</span></div>
+      <div class="panel p"><b id="cntDone">0</b><span>다 그렸어요</span></div>
+    </div>
+    <button class="btn ghost small" data-act="forcefinish">바로 채점하기</button>
+  </div></div>`;
+}
+function hostRevealHTML(){
+  const s = S.state, rv = S.rv;
+  if (!rv) return `<div class="board">${topbarHTML()}<div class="mv"><div class="mv-t blink">채점하는 중...</div></div></div>`;
+  const stage = s.stage, st = memoryStat();
+  const res = rv.results;
+  const ranked = Object.entries(res).sort((a, b) => a[1].r - b[1].r || b[1].s - a[1].s).slice(0, 3);
+  const topIds = ranked.map(x => x[0]);
+  const thumbs = rv.order.map(id => {
+    const hid = rv.hidden[id], isTop = stage >= 2 && topIds.includes(id);
+    const name = isTop ? esc((S.players[id] || {}).name || '') : '';
+    return `<button class="th ${hid ? 'hid' : ''} ${isTop ? 'top' : ''} ${stage >= 2 && !isTop ? 'dim' : ''}" data-thumb="${esc(id)}" aria-label="${isTop ? name + ' 그림' : '이름 없는 그림'}. 누르면 가리거나 다시 보여요">
+      ${hid ? '<span class="h">가림</span>' : `<canvas data-th="${esc(id)}"></canvas>`}
+      ${stage >= 1 && !hid ? `<span class="sc" data-score="${res[id] ? res[id].s : 0}">${stage >= 2 ? (res[id] ? res[id].s : 0) : 0}</span>` : ''}
+      ${isTop ? `<span class="nm">${res[id].r}등 ${name}</span>` : ''}
+    </button>`;
+  }).join('');
+  const tip = tipFor(s.round);
+  const btn = stage === 0 ? '원본 공개 ▶' : stage === 1 ? '순위 공개 ▶' : (s.round < s.total ? '다음 라운드 ▶' : '최종 결과 ▶');
+  return `<div class="board">${topbarHTML()}<div class="rv">
+    <div class="rv-gal" id="gal">${thumbs || '<div class="mv-t muted">아직 그림을 낸 친구가 없어요</div>'}</div>
+    <div class="rv-side">
+      ${stage >= 1 ? `<div class="pic-name">${esc(picName(rv.n, rv.i))}</div>` : `<div class="pic-name">모두의 기억</div>`}
+      <div class="two">
+        <div>${stage >= 1 ? '<canvas id="rvSrc"></canvas>' : '<div class="q-box">?</div>'}<div class="cap">원본</div></div>
+        <div>${stage >= 1 ? '<canvas id="rvHeat"></canvas>' : '<div class="q-box">?</div>'}<div class="cap">많이 칠한 칸</div></div>
+      </div>
+      ${stage >= 1 ? `<div class="stat">우리 반 평균 <b>${st.avg}점</b><br>원본 칸의 <b>${st.pct}%</b>를 절반 넘는 친구가 칠했어요</div>` : `<div class="stat muted">이름 없이 ${rv.order.length}명의 그림을 먼저 봐요<br>그림을 누르면 가릴 수 있어요</div>`}
+      ${stage >= 2 ? `<div class="top3"><div class="tagpix" style="color:var(--yellow);margin-bottom:6px">TOP 3</div>${ranked.map(([id, v]) => `<div class="rank-row"><span class="r" style="color:${rankColor(v.r)}">${rankLabel(v.r)}</span><span class="n">${esc((S.players[id] || {}).name || '')}</span><span class="s">${v.s}</span></div>`).join('')}</div>` : ''}
+      ${stage >= 1 ? `<div class="tip"><b>기억 요령 · ${esc(tip[0])}</b><br>${esc(tip[1])}</div>` : ''}
+      <div class="sp"></div>
+      <button class="btn pink" data-act="next">${btn}</button>
+    </div>
+  </div></div>`;
+}
+function afterReveal(){
+  const s = S.state, rv = S.rv; if (!rv) return;
+  layoutGallery();
+  const animKey = s.round + ':' + s.stage;
+  const doAnim = s.stage === 1 && S.animated !== animKey;
+  document.querySelectorAll('canvas[data-th]').forEach(cv => {
+    const id = cv.dataset.th;
+    paintThumb(cv, rv.draws[id].px, rv.target, rv.n, s.stage >= 1 && !doAnim ? 1 : 0);
+  });
+  if (s.stage >= 1) { plainGrid($('#rvSrc'), rv.target, rv.n); paintHeat($('#rvHeat')); }
+  document.querySelectorAll('.sc[data-score]').forEach(el => { if (!doAnim) el.textContent = el.dataset.score; });
+  if (doAnim) {
+    S.animated = animKey;
+    sfx([60, 64, 67, 72], 0.14);
+    const steps = 8; let k = 0;
+    const t = setInterval(() => {
+      k++;
+      const f = k / steps;
+      document.querySelectorAll('canvas[data-th]').forEach(cv => { if (cv.isConnected) paintThumb(cv, rv.draws[cv.dataset.th].px, rv.target, rv.n, f); });
+      document.querySelectorAll('.sc[data-score]').forEach(el => { el.textContent = Math.round(+el.dataset.score * f); });
+      if (k >= steps) clearInterval(t);
+    }, 140);
+  }
+  if (s.stage === 2 && S.animated !== animKey) { S.animated = animKey; setTimeout(confetti, 120); sfx([72, 79, 84], 0.13); }
+}
+function layoutGallery(){
+  const g = $('#gal'); if (!g) return;
+  const cnt = Math.max(1, g.querySelectorAll('.th').length);
+  const W = g.clientWidth, H = Math.max(240, innerHeight - g.getBoundingClientRect().top - 18), gap = 10;
+  let best = 40;
+  for (let cols = 1; cols <= cnt; cols++) {
+    const rows = Math.ceil(cnt / cols);
+    const sz = Math.floor(Math.min((W - gap * (cols - 1)) / cols, (H - gap * (rows - 1)) / rows));
+    if (sz > best) best = sz;
+  }
+  g.style.setProperty('--th', Math.min(best, 300) + 'px');
+}
+function rankLabel(r){ return r === 1 ? '1ST' : r === 2 ? '2ND' : r === 3 ? '3RD' : r + 'TH'; }
+function rankColor(r){ return ['#FFE14D', '#E8ECFF', '#FF9F5A'][r - 1] || '#8A93C2'; }
+function hostEndHTML(){
+  const s = S.state, top = s.top || [];
+  const order = [top[1], top[0], top[2]].filter(Boolean);
+  const h = { 1: 210, 2: 160, 3: 120 }, c = { 1: '#FFE14D', 2: '#E8ECFF', 3: '#FF9F5A' };
+  return `<div class="board">${topbarHTML()}<div class="end-wrap">
+    <div class="tagpix" style="color:var(--yellow);font-size:18px">FINAL RESULT</div>
+    <div class="podium">${order.map(p => `<div class="pod"><div class="nm">${esc(p.name)}</div><div class="pix" style="font-size:14px;color:var(--green)">${p.t}</div><div class="bar" style="height:${h[p.rank] || 110}px;background:${c[p.rank] || '#8A93C2'}">${p.rank}</div></div>`).join('')}</div>
+    ${(s.awards || []).length ? `<div class="awards">${s.awards.map(a => `<div class="award"><b>${esc(a.title)}</b>${esc(a.name)}</div>`).join('')}</div>` : ''}
+    <div class="mv-t" style="font-size:26px">우리 반 평균 ${s.avgAll || 0}점 · 내 등수와 그림은 각자 기기에서 볼 수 있어요</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button class="btn pink" data-act="newgame">새 게임 ▶</button>
+      <button class="btn ghost" data-act="gohome">처음으로</button>
+    </div>
+  </div></div>`;
+}
+
+/* ---------- 학생 화면 ---------- */
+function renderPlayer(force){
+  const s = S.state; if (!s) return;
+  const me = S.players[S.pid];
+  let k = 'p:' + s.phase + ':' + (s.round || 0);
+  if (s.phase === 'lobby') k += ':' + ((me && me.name) || '') + ':' + onlinePlayers().length;
+  if (s.phase === 'draw') k += ':' + S.submitted + ':' + S.locked + ':' + S.color + ':' + S.tool;
+  if (s.phase === 'reveal') k += ':' + s.stage + ':' + !!S.myResult;
+  if (s.phase === 'end') k += ':' + !!(S.history && S.history.length) + ':' + !!S.myTotal;
+  if (!force && k === S.viewKey) return;
+  const screenChanged = k.split(':').slice(0, 3).join(':') !== S.viewKey.split(':').slice(0, 3).join(':');
+  S.viewKey = k;
+  if (s.phase === 'lobby') app.innerHTML = playerLobbyHTML();
+  else if (s.phase === 'view') app.innerHTML = playerViewHTML();
+  else if (s.phase === 'draw') { app.innerHTML = playerDrawHTML(); const cv = document.querySelector('canvas[data-grid="edit"]'); if (cv) { cv._prev = null; bindDrawing(cv); paintBoard(); } }
+  else if (s.phase === 'reveal') { app.innerHTML = playerRevealHTML(); afterPlayerReveal(); }
+  else if (s.phase === 'end') { app.innerHTML = playerEndHTML(); afterPlayerEnd(); }
+  if (screenChanged) animateEnter();
+}
+function phoneHead(right){
+  const me = S.players[S.pid];
+  return `<div class="p-top"><div class="p-title">${esc((me && me.name) || '')}</div>${right || ''}</div>`;
+}
+function eyeHTML(){
+  const m = ['...........','...YYYYY...','.YYWWWWWYY.','YYWWNNNWWYY','YWWWNNNWWWY','YYWWNNNWWYY','.YYWWWWWYY.','...YYYYY...'];
+  const c = { Y: 'var(--yellow)', W: '#F4F5FF', N: 'var(--blue)' };
+  return `<div class="eye" aria-hidden="true">${m.join('').split('').map(x => `<i style="background:${c[x] || 'transparent'}"></i>`).join('')}</div>`;
+}
+function playerLobbyHTML(){
+  return `<div class="phone">${phoneHead('<span class="pix" style="font-size:12px;color:var(--yellow)">READY</span>')}
+    <div class="look">${logoHTML()}
+      <div class="wait-big">선생님이 시작할 때까지<br>기다려 주세요</div>
+      <div class="muted" style="font-size:18px">지금 ${onlinePlayers().length}명이 들어왔어요</div>
+      <div class="note">칠판의 그림을 잠깐 보고, 그림이 사라지면 내 기기에 기억나는 대로 칠해요.</div>
+    </div>
+    <button class="btn ghost small" data-act="gohome">나가기</button>
+  </div>`;
+}
+function playerViewHTML(){
+  const s = S.state;
+  return `<div class="phone">${phoneHead(`<span class="chip round" style="padding:6px 8px;font-size:10px">${s.round}/${s.total}</span>`)}
+    <div class="look">${eyeHTML()}
+      <div class="wait-big" style="font-size:36px;color:var(--yellow)">칠판을 보세요!</div>
+      <div class="p-time" id="pViewTime" style="font-size:30px"></div>
+      <div class="muted" style="font-size:18px">그림은 칠판에만 나와요. 잘 기억해 두세요.</div>
+    </div>
+  </div>`;
+}
+function playerDrawHTML(){
+  const s = S.state, cols = (s.colors || '').split('');
+  const pal = cols.map(ci => `<button aria-label="${COLOR_NAMES[+ci]}" data-color="${ci}" style="background:${COLORS[+ci]}" class="${S.tool !== 'erase' && S.color === +ci ? 'on' : ''}"></button>`).join('');
+  const done = S.submitted || S.locked;
+  const bottom = S.locked
+    ? `<div class="msg ok after">시간 끝! 칠판을 보세요</div>`
+    : S.submitted
+      ? `<div class="msg ok after">다 그렸어요! 친구들을 기다려요</div><button class="btn ghost after done-btn" data-act="undone">다시 고치기</button>`
+      : `<div class="spacer after"></div><button class="btn pink after done-btn" data-act="done">다 그렸어요 ▶</button>`;
+  return `<div class="phone play">
+    <div class="p-canvas"><div class="grid-wrap grid-frame"><canvas data-grid="edit" aria-label="눌러서 칸을 칠해요"></canvas></div></div>
+    <div class="p-side">
+      <div class="p-top"><span class="p-title">기억해서 칠해요</span>${S.practice ? '<button class="btn ghost small" data-act="pquit">그만</button>' : ''}<span class="p-time" id="drawTimeP">00:40</span></div>
+      <div id="drawSegP">${seg10(1, 'y')}</div>
+      ${done ? '' : `<div class="palette after" style="grid-template-columns:repeat(${Math.max(cols.length, 2)},1fr)" role="group" aria-label="색 고르기">${pal}</div>
+      <div class="tools after">
+        <button class="btn ghost" data-act="undo">되돌리기</button>
+        <button class="btn ghost ${S.tool === 'fill' ? 'on' : ''}" data-act="fill">채우기</button>
+        <button class="btn ghost ${S.tool === 'erase' ? 'on' : ''}" data-act="erase">지우개</button>
+        <button class="btn ghost" data-act="clearall">모두 지우기</button>
+      </div>`}
+      ${bottom}
+    </div>
+  </div>`;
+}
+function playerRevealHTML(){
+  const s = S.state, R = S.myResult;
+  if (s.stage < 1 || !R) {
+    return `<div class="phone">${phoneHead(`<span class="chip round" style="padding:6px 8px;font-size:10px">${s.round}/${s.total}</span>`)}
+      <div class="look">${eyeHTML()}<div class="wait-big" style="font-size:32px">칠판에서<br>모두의 그림을 봐요</div><div class="muted" style="font-size:18px">이름은 나오지 않아요</div></div></div>`;
+  }
+  return `<div class="phone">${phoneHead(`<span class="chip round" style="padding:6px 8px;font-size:10px">${s.round}/${s.total}</span>`)}
+    <div class="score-big pop">${R.s}</div>
+    <div class="wait-big" style="font-size:24px">${esc(picName(s.pic.n, s.pic.i))} · 이번 판 ${R.r}등 / ${R.np}명</div>
+    <div class="p-two">
+      <div><canvas id="pMine"></canvas><div class="cap">내 그림</div></div>
+      <div><canvas id="pSrc"></canvas><div class="cap">원본</div></div>
+    </div>
+    ${s.stage >= 2 ? `<div class="scorebar"><span>누적 ${R.t}점</span><span>전체 ${R.tr}등</span></div>` : ''}
+    <div class="private">내 점수와 등수는 나에게만 보여요</div>
+  </div>`;
+}
+function afterPlayerReveal(){
+  const s = S.state;
+  if (!$('#pMine')) return;
+  requestAnimationFrame(() => {
+    const t = picPx(s.pic.n, s.pic.i);
+    paintThumb($('#pMine'), S.localPx || emptyPx(s.n), t, s.n, 1);
+    plainGrid($('#pSrc'), t, s.n);
+  });
+}
+function playerEndHTML(){
+  const s = S.state;
+  const last = S.myResult;
+  const h = S.history || [];
+  return `<div class="phone">${phoneHead('<span class="pix" style="font-size:11px;color:var(--yellow)">FINAL</span>')}
+    <div class="score-big pop">${last ? last.t : (S.myTotal || 0)}</div>
+    <div class="wait-big" style="font-size:24px">${last ? `전체 ${last.tr}등 / ${last.np}명` : '수고했어요'}</div>
+    <div class="private">내 등수는 나에게만 보여요</div>
+    ${h.length ? `<div class="tagpix" style="color:var(--blue)">MY PICTURES</div><div class="hist">${h.map(x => `<div><canvas data-hist="${x.r}"></canvas><b>${x.s}</b></div>`).join('')}</div>` : ''}
+    <div class="sp"></div>
+    <button class="btn ghost small" data-act="gohome">나가기</button>
+  </div>`;
+}
+function afterPlayerEnd(){
+  requestAnimationFrame(() => {
+    (S.history || []).forEach(x => {
+      const cv = document.querySelector(`canvas[data-hist="${x.r}"]`);
+      if (cv && x.pic) paintThumb(cv, x.px || emptyPx(x.pic.n), picPx(x.pic.n, x.pic.i), x.pic.n, 1);
+    });
+  });
+}
+
+/* ---------- 혼자 연습 (서버 없이 이 기기에서만) ---------- */
+const PR_SET = 5;
+const PR_LEVELS = {
+  8: { name: '쉬움', sub: '8×8 · 2색', sizes: [8, 8, 8, 8, 8] },
+  10: { name: '보통', sub: '10×10 · 3~4색', sizes: [10, 10, 10, 10, 10] },
+  12: { name: '어려움', sub: '12×12 · 5~6색', sizes: [12, 12, 12, 12, 12] },
+  mix: { name: '차례로', sub: '쉬움에서 어려움까지', sizes: [8, 8, 10, 10, 12] }
+};
+function prBest(level){ const v = parseInt(lsGet('pm-best-' + level), 10); return isNaN(v) ? null : v; }
+function showPracticeMenu(){
+  clearSubs();
+  S.practice = null; S.code = null; S.role = null; S.state = null; S.viewKey = '';
+  history.replaceState(null, '', location.pathname);
+  const btn = (lv, cls) => { const L = PR_LEVELS[lv], b = prBest(lv); return `<button class="btn ${cls}" data-practice="${lv}"><span>${L.name} <small style="font-size:15px">${L.sub}</small></span><span class="pix" style="font-size:10px">${b == null ? '' : 'BEST ' + b}</span></button>`; };
+  app.innerHTML = `<div class="center"><div class="card">
+    <div style="display:flex;justify-content:center">${logoHTML()}</div>
+    <div class="pix" style="text-align:center;font-size:12px;color:var(--yellow)">PRACTICE MODE</div>
+    <div class="home-btns">${btn(8, '')}${btn(10, 'blue')}${btn(12, 'pink')}${btn('mix', 'yellow')}</div>
+    <div class="note">그림을 잠깐 보고 기억나는 대로 칠해요. 한 번에 ${PR_SET}판을 하고, 기록은 이 기기에만 남아요.</div>
+    <button class="btn ghost small" data-home="back">처음으로</button>
+  </div></div>`;
+}
+function startPractice(level){
+  clearSubs();
+  const L = PR_LEVELS[level], used = {};
+  const plan = L.sizes.map((n, idx) => {
+    const seen = used[n] = used[n] || [];
+    const pool = PICS[n].map((_, i) => i).filter(i => !seen.includes(i));
+    const i = pool[Math.floor(Math.random() * pool.length)];
+    seen.push(i);
+    const before = L.sizes.slice(0, idx).filter(x => x === n).length;
+    return { n, i, view: n === 12 ? 10 : (before ? 8 : 10) };
+  });
+  S.code = 'practice'; S.role = 'practice'; S.viewKey = ''; S.history = null;
+  S.practice = { level, plan, results: [], newBest: false, avg: 0 };
+  S.tick = setInterval(onTick, 250);
+  practiceRound(1);
+}
+function practiceRound(r){
+  const pr = S.practice, p = pr.plan[r - 1], now = B.now();
+  S.mineRound = r; S.localPx = emptyPx(p.n); S.undo = []; S.tool = 'pen'; S.submitted = false; S.locked = false; S.drawing = false;
+  const colors = picColors(picPx(p.n, p.i));
+  S.color = Number(colors[0]);
+  S.state = { phase: 'view', round: r, total: pr.plan.length, n: p.n, colors, viewSec: p.view, viewAt: now + READY_MS, viewEndsAt: now + READY_MS + p.view * 1000 };
+  render(true);
+}
+function practiceTick(){
+  const s = S.state; if (!s) return;
+  const now = B.now();
+  if (s.phase === 'view' && now >= s.viewEndsAt) {
+    S.state = { ...s, phase: 'draw', drawEndsAt: now + DRAW_SEC * 1000 };
+    render(true);
+  } else if (s.phase === 'draw' && now >= s.drawEndsAt) practiceFinish();
+}
+function practiceFinish(){
+  const s = S.state, pr = S.practice; if (!s || s.phase !== 'draw') return;
+  S.drawing = false;
+  const p = pr.plan[s.round - 1], score = scoreDrawing(picPx(p.n, p.i), S.localPx, p.n);
+  pr.results[s.round - 1] = { r: s.round, px: S.localPx, s: score, pic: { n: p.n, i: p.i } };
+  S.state = { ...s, phase: 'result' };
+  sfx([67, 71, 74], 0.08, 1);
+  render(true);
+}
+function practiceNext(){
+  const s = S.state, pr = S.practice; if (!s || s.phase !== 'result') return;
+  if (s.round < s.total) { practiceRound(s.round + 1); return; }
+  pr.avg = Math.round(pr.results.reduce((x, y) => x + y.s, 0) / pr.results.length);
+  const best = prBest(pr.level);
+  pr.newBest = best == null || pr.avg > best;
+  if (pr.newBest) lsSet('pm-best-' + pr.level, String(pr.avg));
+  S.history = pr.results;
+  S.state = { ...s, phase: 'end' };
+  if (pr.newBest) setTimeout(confetti, 200);
+  render(true);
+}
+function prComment(v){ return v === 100 ? '완벽해요!' : v >= 90 ? '거의 완벽해요!' : v >= 70 ? '잘 기억했어요' : v >= 40 ? '모양이 보여요' : v > 0 ? '다음엔 전체 모양부터 잡아 봐요' : '아직 칠한 칸이 없어요'; }
+function renderPractice(force){
+  const s = S.state; if (!s) return;
+  let k = 'x:' + s.phase + ':' + s.round;
+  if (s.phase === 'view') k += ':' + (B.now() >= s.viewAt);
+  if (s.phase === 'draw') k += ':' + S.color + ':' + S.tool;
+  if (!force && k === S.viewKey) return;
+  const screenChanged = k.split(':').slice(0, 3).join(':') !== S.viewKey.split(':').slice(0, 3).join(':');
+  S.viewKey = k;
+  if (s.phase === 'view') {
+    app.innerHTML = practiceViewHTML();
+    if ($('#prSrc')) { const p = S.practice.plan[s.round - 1]; requestAnimationFrame(() => plainGrid($('#prSrc'), picPx(p.n, p.i), p.n)); }
+  } else if (s.phase === 'draw') {
+    app.innerHTML = playerDrawHTML();
+    const cv = document.querySelector('canvas[data-grid="edit"]');
+    if (cv) { cv._prev = null; bindDrawing(cv); paintBoard(); }
+  } else if (s.phase === 'result') {
+    app.innerHTML = practiceResultHTML();
+    const R = S.practice.results[s.round - 1];
+    requestAnimationFrame(() => { const t = picPx(R.pic.n, R.pic.i); paintThumb($('#pMine'), R.px, t, R.pic.n, 1); plainGrid($('#pSrc'), t, R.pic.n); });
+  } else if (s.phase === 'end') {
+    app.innerHTML = practiceEndHTML();
+    afterPlayerEnd();
+  }
+  if (screenChanged) animateEnter();
+}
+function prHead(s){ return `<div class="p-top"><span class="chip round" style="padding:6px 8px;font-size:10px">${s.round}/${s.total}</span><button class="btn ghost small" data-act="pquit">그만</button></div>`; }
+function practiceViewHTML(){
+  const s = S.state;
+  if (B.now() < s.viewAt) return `<div class="phone">${prHead(s)}<div class="look"><div class="wait-big" style="font-size:30px">곧 그림이 나와요</div><div class="big-num" id="readyNum">3</div><div class="muted" style="font-size:18px">${s.n}×${s.n} 판 · ${s.viewSec}초 동안 보여 줘요</div></div></div>`;
+  return `<div class="phone">${prHead(s)}<div class="look">
+    <div class="pr-grid"><canvas id="prSrc" aria-label="기억할 그림"></canvas></div>
+    <div class="pr-bar" id="viewSeg">${seg10(1, 'y')}</div>
+    <div class="mv-time" id="viewTime">${s.viewSec}</div>
+  </div></div>`;
+}
+function practiceResultHTML(){
+  const s = S.state, R = S.practice.results[s.round - 1], tip = tipFor(s.round);
+  return `<div class="phone">${prHead(s)}
+    <div class="score-big pop">${R.s}</div>
+    <div class="wait-big" style="font-size:24px">${esc(picName(R.pic.n, R.pic.i))} · ${prComment(R.s)}</div>
+    <div class="p-two">
+      <div><canvas id="pMine"></canvas><div class="cap">내 그림</div></div>
+      <div><canvas id="pSrc"></canvas><div class="cap">원본</div></div>
+    </div>
+    <div class="private">내 그림의 흐린 칸은 놓친 칸, 가운데 네모는 원본 색이에요</div>
+    <div class="tip"><b>기억 요령 · ${esc(tip[0])}</b><br>${esc(tip[1])}</div>
+    <div class="sp"></div>
+    <button class="btn pink" data-act="pnext">${s.round < s.total ? '다음 그림 ▶' : '결과 보기 ▶'}</button>
+  </div>`;
+}
+function practiceEndHTML(){
+  const pr = S.practice, L = PR_LEVELS[pr.level], best = prBest(pr.level);
+  return `<div class="phone">
+    <div class="p-top"><span class="p-title">${L.name} 연습 끝!</span><span class="pix" style="font-size:11px;color:var(--yellow)">${pr.newBest ? 'NEW BEST' : 'BEST ' + best}</span></div>
+    <div class="score-big pop">${pr.avg}</div>
+    <div class="wait-big" style="font-size:24px">${PR_SET}판 평균 · ${prComment(pr.avg)}</div>
+    <div class="tagpix" style="color:var(--blue)">MY PICTURES</div>
+    <div class="hist">${pr.results.map(x => `<div><canvas data-hist="${x.r}"></canvas><b>${x.s}</b></div>`).join('')}</div>
+    <div class="sp"></div>
+    <button class="btn pink" data-act="pagain">한 번 더 ▶</button>
+    <button class="btn ghost small" data-act="pquit">단계 고르기</button>
+  </div>`;
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-practice]'); if (!t) return;
+  const v = t.dataset.practice;
+  startPractice(v === 'mix' ? 'mix' : +v);
+});
+
+/* ---------- 실시간으로 바뀌는 글자 ---------- */
+function setText(id, t){ const el = document.getElementById(id); if (el && el.textContent !== t) el.textContent = t; }
+function setSeg(id, ratio){ const el = document.getElementById(id); if (el) { const on = Math.ceil(Math.max(0, Math.min(1, ratio)) * 10); [...el.querySelectorAll('i')].forEach((x, i) => x.classList.toggle('on', i < on)); } }
+function updateDynamic(){
+  const s = S.state; if (!s || !B) return;
+  const now = B.now();
+  if (s.phase === 'view') {
+    setText('readyNum', String(Math.max(1, Math.ceil((s.viewAt - now) / 1000))));
+    const left = Math.max(0, s.viewEndsAt - now);
+    setText('viewTime', String(Math.ceil(left / 1000)));
+    setSeg('viewSeg', left / (s.viewSec * 1000));
+    setText('pViewTime', now < s.viewAt ? '곧 나와요' : Math.ceil(left / 1000) + '초');
+  }
+  if (s.phase === 'draw') {
+    const left = Math.max(0, s.drawEndsAt - now);
+    const t = mmss(left), ratio = left / (DRAW_SEC * 1000);
+    setText('drawTime', t); setText('drawTimeP', t);
+    setSeg('drawSeg', ratio); setSeg('drawSegP', ratio);
+    if (S.role === 'host') {
+      const on = onlinePlayers();
+      const done = on.filter(p => S.liveDraws[p.id] && S.liveDraws[p.id].done).length;
+      setText('cntDone', done + '');
+      setText('cntPaint', Math.max(0, on.length - done) + '');
+    }
+    ['drawTime', 'drawTimeP'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('urgent', left < 5000 && left > 0); });
+  }
+}
+
+/* ---------- 버튼 ---------- */
+async function goHome(){
+  clearSubs();
+  try { if (B.unpresence) await B.unpresence(); } catch (e) {}
+  if (S.role === 'player' && S.code && S.pid) { try { await B.set(roomPath('players/' + S.pid + '/online'), false); } catch (e) {} }
+  S.code = null; S.role = null; S.pid = null; S.state = null; S.meta = null; S.players = {}; S.viewKey = ''; S.rv = null; S.mineRound = null; S.history = null; S.seenSelf = false; S.practice = null;
+  Music.stop(); showHome();
+}
+document.addEventListener('click', async e => {
+  const col = e.target.closest('[data-color]');
+  if (col) { S.color = +col.dataset.color; if (S.tool === 'erase') S.tool = 'pen'; render(true); return; }
+  const set = e.target.closest('[data-set]');
+  if (set && S.role === 'host') { B.update(roomPath('meta/settings'), { [set.dataset.set]: +set.dataset.val }); return; }
+  const kick = e.target.closest('[data-kick]');
+  if (kick && S.role === 'host') {
+    const id = kick.dataset.kick;
+    if (S.armed === id) { S.armed = null; B.remove(roomPath('players/' + id)); }
+    else { S.armed = id; clearTimeout(S.armT); S.armT = setTimeout(() => { S.armed = null; render(true); }, 2500); }
+    render(true); return;
+  }
+  const th = e.target.closest('[data-thumb]');
+  if (th && S.rv) { const id = th.dataset.thumb; S.rv.hidden[id] = !S.rv.hidden[id]; render(true); return; }
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const act = a.dataset.act;
+  if (act === 'bgm') { Music.toggle(); updateBgmButtons(); }
+  else if (act === 'start') { Music.init(); await startGame(); }
+  else if (act === 'next') hostNext();
+  else if (act === 'forcefinish') { const s = S.state; if (s && s.phase === 'draw' && onceFor('finish:' + s.round)) finishRound(s.round); }
+  else if (act === 'newgame') hostNewGame();
+  else if (act === 'gohome') goHome();
+  else if (act === 'undo') { if (canPaint() && S.undo.length) { S.localPx = S.undo.pop(); paintBoard(); writeDraw(); } }
+  else if (act === 'erase') { S.tool = S.tool === 'erase' ? 'pen' : 'erase'; render(true); }
+  else if (act === 'fill') { S.tool = S.tool === 'fill' ? 'pen' : 'fill'; render(true); }
+  else if (act === 'clearall') { if (canPaint()) { S.undo.push(S.localPx); S.localPx = emptyPx(S.state.n); paintBoard(); writeDraw(); } }
+  else if (act === 'done') { if (S.practice) { practiceFinish(); return; } S.submitted = true; writeDraw(true); render(true); }
+  else if (act === 'pnext') practiceNext();
+  else if (act === 'pagain') startPractice(S.practice.level);
+  else if (act === 'pquit') showPracticeMenu();
+  else if (act === 'undone') { S.submitted = false; writeDraw(true); render(true); }
+});
+window.addEventListener('resize', () => { if (S.role === 'host' && S.state && S.state.phase === 'reveal') { S.layoutV = (S.layoutV || 0) + 1; render(true); } });
+
+/* ---------- 첫 화면 ---------- */
+function homeHTML(){
+  return `<div class="center"><div class="card">
+    <div style="display:flex;justify-content:center">${logoHTML()}</div>
+    <div class="pix blink" style="text-align:center;font-size:12px;color:var(--yellow)">PRESS START</div>
+    <div class="home-btns">
+      ${S.noConn ? `<div class="msg bad" style="font-size:18px">${NOCONN_MSG}</div>` : ''}
+      <button class="btn" data-home="join" ${S.noConn ? 'disabled' : ''}><span>학생 · 방 들어가기</span><span class="pix">PLAYER</span></button>
+      <button class="btn pink" data-home="host" ${S.noConn ? 'disabled' : ''}><span>선생님 · 방 만들기</span><span class="pix">HOST</span></button>
+      <button class="btn yellow" data-home="practice"><span>혼자 연습</span><span class="pix">1P</span></button>
+    </div>
+    <div class="note">선생님은 전자칠판에서 방을 만들고, 학생은 휴대폰이나 노트북으로 들어와요. 칠판의 그림을 잠깐 보고, 기억만으로 다시 칠해요.</div>
+  </div></div>`;
+}
+function joinHTML(code){
+  return `<div class="center"><form class="card" id="joinForm" autocomplete="off">
+    <div style="display:flex;justify-content:center">${logoHTML()}</div>
+    <div class="pix" style="text-align:center;font-size:12px;color:var(--green)">INSERT COIN</div>
+    <div class="field"><label for="jCode">방 코드</label><input id="jCode" class="inp code" inputmode="numeric" maxlength="4" placeholder="0000" value="${esc(code || '')}"></div>
+    <div class="field"><label for="jName">별명 (2~8글자)</label><input id="jName" class="inp" maxlength="8" placeholder="예) 강낭콩" value="${esc(lsGet('pm-name') || '')}"></div>
+    <div class="err" id="jErr" role="alert"></div>
+    <button class="btn" type="submit" style="height:60px;font-size:24px">입장하기 ▶</button>
+    <button class="btn ghost small" type="button" data-home="back">처음으로</button>
+  </form></div>`;
+}
+const NOCONN_MSG = '서버에 연결하지 못했어요. 인터넷 연결을 확인하고 잠시 뒤에 다시 해 주세요.';
+function showHome(){ S.code = null; app.innerHTML = homeHTML(); history.replaceState(null, '', location.pathname); }
+function showJoin(code){ S.code = null; app.innerHTML = joinHTML(code); setTimeout(() => { const el = code ? $('#jName') : $('#jCode'); if (el) el.focus(); }, 50); }
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-home]'); if (!t) return;
+  const h = t.dataset.home;
+  if (h === 'join') showJoin('');
+  else if (h === 'back') showHome();
+  else if (h === 'practice') showPracticeMenu();
+  else if (h === 'host') {
+    t.disabled = true;
+    if (!await B.waitConnected(6000)) { S.noConn = true; showHome(); return; }
+    await createRoom();
+  }
+});
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'joinForm') return;
+  e.preventDefault();
+  const code = $('#jCode').value.trim(), name = $('#jName').value.trim();
+  const err = $('#jErr');
+  if (!/^\d{4}$/.test(code)) { err.textContent = '방 코드 4자리를 입력해 주세요'; return; }
+  if ([...name].length < 2 || [...name].length > 8) { err.textContent = '별명은 2~8글자로 써 주세요'; return; }
+  if (isBad(name)) { err.textContent = '다른 별명을 써 주세요'; return; }
+  err.textContent = '들어가는 중...';
+  if (!await B.waitConnected(6000)) { err.textContent = NOCONN_MSG; return; }
+  const msg = await joinRoom(code, name);
+  if (msg) err.textContent = msg;
+});
+(async function boot(){
+  try { B = FIREBASE_CONFIG ? await makeFirebaseBackend(FIREBASE_CONFIG) : makeLocalBackend(); }
+  catch (e) { console.error(e); S.noConn = true; B = makeLocalBackend(true); showHome(); return; }
+  $('#modeflag').textContent = B.mode === 'local' ? 'DEMO MODE · 같은 브라우저 탭끼리만 연결' : '';
+  const q = new URLSearchParams(location.search);
+  if ((q.get('host') || q.get('room')) && !await B.waitConnected(6000)) {
+    if (q.get('room')) { showJoin(q.get('room')); const er = $('#jErr'); if (er) er.textContent = NOCONN_MSG; }
+    else { S.noConn = true; showHome(); }
+    return;
+  }
+  if (q.get('host')) { if (await resumeHost(q.get('host'))) return; showHome(); return; }
+  if (q.get('room')) {
+    const code = q.get('room'), pid = pidGet(code);
+    if (pid) { const pl = await B.get('rooms/' + code + '/players/' + pid); if (pl && pl.name) { const m = await joinRoom(code, pl.name); if (!m) return; } }
+    showJoin(code); return;
+  }
+  showHome();
+})();
+
+</script>
+</body>
+</html>
