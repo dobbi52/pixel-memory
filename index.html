@@ -614,8 +614,8 @@ async function makeFirebaseBackend(cfg){
     /* 지금 접속 중인 사람 수 (무료 요금제 동시 접속 100명 확인용) */
     trackPresence(onCount){
       const me = d.ref('presence/' + genId());
-      d.ref('.info/connected').on('value', s => { if (s.val()) { me.onDisconnect().remove(); me.set(firebase.database.ServerValue.TIMESTAMP).catch(() => {}); } });
-      d.ref('presence').on('value', s => onCount(s.numChildren()), () => onCount(null));
+      d.ref('.info/connected').on('value', s => { if (s.val()) { me.onDisconnect().remove().catch(() => {}); me.set(firebase.database.ServerValue.TIMESTAMP).catch(() => {}); } });
+      
     }
   };
 }
@@ -1787,6 +1787,7 @@ document.addEventListener('submit', async e => {
 (async function boot(){
   try { B = FIREBASE_CONFIG ? await makeFirebaseBackend(FIREBASE_CONFIG) : makeLocalBackend(); }
   catch (e) { console.error(e); S.noConn = true; B = makeLocalBackend(true); showHome(); return; }
+  if (B.trackPresence) B.trackPresence();
   $('#modeflag').textContent = B.mode === 'local' ? 'DEMO MODE · 같은 브라우저 탭끼리만 연결' : '';
   const q = new URLSearchParams(location.search);
   if ((q.get('host') || q.get('room')) && !await B.waitConnected(6000)) {
