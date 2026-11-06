@@ -794,7 +794,7 @@ const ROUNDS = {
   7: [8, 8, 10, 10, 10, 12, 12],
   10: [8, 8, 8, 10, 10, 10, 10, 12, 12, 12]
 };
-const DEFAULT_SETTINGS = { rounds: 5, level: 'mix', viewSec: 10, drawSec: 40 };
+const DEFAULT_SETTINGS = { rounds: 5, level: 'mix', viewSec: 10, drawSec: 40, autoNext: 0 };
 const READY_MS = 3000, DRAW_SEC = 40, GRACE_MS = 1200, STAGE0_MS = 6000, STAGE1_MS = 5000;
 const TIPS = [
   ['전체 모양부터', '칸을 세기 전에 무슨 그림인지 먼저 잡아요.'],
@@ -950,6 +950,8 @@ function hostTick(){
     const wait = s.stage === 0 ? STAGE0_MS : STAGE1_MS;
     if (now >= s.stageAt + wait && onceFor('stage:' + s.round + ':' + (s.stage + 1))) setStage(s.stage + 1);
   }
+  const auto = settings().autoNext;
+  if (s.phase === 'reveal' && s.stage === 2 && auto > 0 && now >= s.stageAt + auto * 1000 && onceFor('next:' + s.round)) hostNext();
 }
 function setStage(st){ return B.update(roomPath('state'), { stage: st, stageAt: B.now() }); }
 function rankList(map){
@@ -1265,7 +1267,7 @@ function hostLobbyHTML(){
   const pl = players().sort((a, b) => (a.joined || 0) - (b.joined || 0));
   const online = onlinePlayers().length;
   const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, label]) => `<button data-set="${k}" data-val="${v}" class="${st[k] === v ? 'on' : ''}">${label}</button>`).join('')}</div>`;
-  const est = Math.ceil(st.rounds * (READY_MS / 1000 + st.viewSec + st.drawSec + 20) / 60);
+  const est = Math.ceil(st.rounds * (READY_MS / 1000 + st.viewSec + st.drawSec + (st.autoNext ? 11 + st.autoNext : 20)) / 60);
   return `<div class="board">${topbarHTML()}
   <div class="lobby">
     <div class="panel g lobby-join">
@@ -1288,6 +1290,7 @@ function hostLobbyHTML(){
         <div class="set-row"><span class="lb">난이도</span>${seg('level', [['mix', '차례로'], [8, '쉬움 8×8'], [10, '보통 10×10'], [12, '어려움 12×12']])}</div>
         <div class="set-row"><span class="lb">그림 보는 시간</span>${seg('viewSec', [[5, '5초'], [8, '8초'], [10, '10초'], [15, '15초']])}</div>
         <div class="set-row"><span class="lb">맞히는 시간</span>${seg('drawSec', [[20, '20초'], [30, '30초'], [40, '40초'], [60, '60초']])}</div>
+        <div class="set-row"><span class="lb">다음 라운드</span>${seg('autoNext', [[0, '선생님이 누르기'], [5, '자동 5초'], [10, '자동 10초'], [15, '자동 15초']])}</div>
       </div>
       <div class="panel">
         <div class="panel-h"><span class="tagpix" style="color:var(--blue)">HOW TO</span></div>
@@ -1353,7 +1356,7 @@ function hostRevealHTML(){
       ${stage >= 2 ? `<div class="top3"><div class="tagpix" style="color:var(--yellow);margin-bottom:6px">TOP 3</div>${ranked.map(([id, v]) => `<div class="rank-row"><span class="r" style="color:${rankColor(v.r)}">${rankLabel(v.r)}</span><span class="n">${esc((S.players[id] || {}).name || '')}</span><span class="s">${v.s}</span></div>`).join('')}</div>` : ''}
       ${stage >= 1 ? `<div class="tip"><b>기억 요령 · ${esc(tip[0])}</b><br>${esc(tip[1])}</div>` : ''}
       <div class="sp"></div>
-      <button class="btn pink" data-act="next">${btn}</button>
+      <button class="btn pink" data-act="next" id="nextBtn" data-label="${btn}">${btn}</button>
     </div>
   </div></div>`;
 }
@@ -1795,6 +1798,10 @@ function updateDynamic(){
     setText('viewTime', String(Math.ceil(left / 1000)));
     setSeg('viewSeg', left / (s.viewSec * 1000));
     setText('pViewTime', now < s.viewAt ? '곧 나와요' : Math.ceil(left / 1000) + '초');
+  }
+  if (s.phase === 'reveal' && S.role === 'host' && s.stage === 2 && settings().autoNext > 0) {
+    const el = $('#nextBtn');
+    if (el) { const t = el.dataset.label.replace(' ▶', '') + ' ' + Math.max(0, Math.ceil((s.stageAt + settings().autoNext * 1000 - now) / 1000)) + '초 ▶'; if (el.textContent !== t) el.textContent = t; }
   }
   if (s.phase === 'draw') {
     const left = Math.max(0, s.drawEndsAt - now);
